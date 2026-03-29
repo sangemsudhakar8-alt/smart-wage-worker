@@ -1,0 +1,98 @@
+{
+  "users": [
+    {
+      "id": "e_sample",
+      "phone": "9876543210",
+      "role": "employer",
+      "name": "Arjun Rao",
+      "skills": [],
+      "location": "Hyderabad",
+      "trustScore": 100
+    },
+    {
+      "id": "w_sample",
+      "phone": "1234567890",
+      "role": "worker",
+      "name": "Ramesh Kumar",
+      "skills": ["Painter", "Driver"],
+      "location": "Hyderabad",
+      "trustScore": 95,
+      "avatarUrl": ""
+    }
+  ],
+  "jobs": [
+    {
+      "id": "j_1",
+      "employerId": "e_sample",
+      "title": "Wall Painting (Residential)",
+      "location": "Hyderabad",
+      "wage": "800",
+      "status": "closed",
+      "createdAt": "2026-03-27T10:00:00Z"
+    },
+    {
+      "id": "j_2",
+      "employerId": "e_sample",
+      "title": "Delivery Driver (Morning Shift)",
+      "location": "Hyderabad",
+      "wage": "600",
+      "status": "open",
+      "createdAt": "2026-03-27T11:00:00Z"
+    },
+    {
+      "id": "j_3",
+      "employerId": "e_sample",
+      "title": "Construction Mason",
+      "location": "Gachibowli",
+      "wage": "900",
+      "status": "open",
+      "createdAt": "2026-03-27T12:00:00Z"
+    }
+  ],
+  "applications": [
+    {
+      "id": "app_1",
+      "jobId": "j_1",
+      "workerId": "w_sample",
+      "status": "selected",
+      "appliedAt": "2026-03-27T10:15:00Z"
+    },
+    {
+      "id": "app_2",
+      "jobId": "j_2",
+      "workerId": "w_sample",
+      "status": "pending",
+      "appliedAt": "2026-03-27T11:20:00Z"
+    }
+  ],
+  "attendance": [
+    {
+      "id": "att_1",
+      "jobId": "j_1",
+      "workerId": "w_sample",
+      "date": "2026-03-27",
+      "present": true
+    }
+  ],
+  "notifications": [
+    {
+      "id": "not_1",
+      "userId": "w_sample",
+      "message": "You were SELECTED for Wall Painting!",
+      "type": "success",
+      "date": "2026-03-27T10:30:00Z"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "rev_1",
+      "workerId": "w_sample",
+      "employerId": "e_sample",
+      "jobId": "j_1",
+      "rating": 5,
+      "comment": "Very professional and punctual painter.",
+      "date": "2026-03-27T18:00:00Z"
+    }
+  ],
+  "leaves": []
+}
