@@ -55,16 +55,16 @@ const LandingPage = ({ onGetStarted }) => {
             return;
         }
         setMicPulsing(true);
-        const welcomeText = {
-            en: "Welcome to Smart Wage Worker! We connect rural workers with trusted employers across India. Register in just 30 seconds using your phone number — no paperwork needed. Browse jobs near you, apply with one tap, and get paid your full, fair wage every time. Your trust score grows with every successful job, unlocking better opportunities. Join over twelve thousand workers already earning on SmartWage!",
-            te: "స్మార్ట్ వేజ్ వర్కర్‌కు స్వాగతం! మేము గ్రామీణ కార్మికులను విశ్వసనీయ యజమానులతో అనుసంధానిస్తాము. మీ ఫోన్ నంబర్‌తో 30 సెకన్లలో నమోదు చేసుకోండి. సమీపంలోని ఉద్యోగాలు చూసి, ఒక్క నొక్కుతో దరఖాస్తు చేయండి. పారదర్శక వేతనాలు మరియు సకాలంలో చెల్లింపులు మీకు హామీ ఇస్తాము!",
-            hi: "Smart Wage Worker में आपका स्वागत है! हम ग्रामीण कामगारों को विश्वसनीय नियोक्ताओं से जोड़ते हैं। सिर्फ अपने फोन नंबर से 30 सेकंड में रजिस्टर करें। पास की नौकरियां देखें और एक क्लिक में आवेदन करें। पूरा और उचित वेतन हर बार मिलेगा। ट्रस्ट स्कोर बढ़ने से बेहतर मौके मिलेंगे!"
+        const welcomeUrls = {
+            en: '/audio/en/landing_demo.mp3',
+            hi: '/audio/hi/landing_demo.mp3',
+            te: '/audio/te/landing_demo.mp3'
         };
-        const text = welcomeText[i18n.language] || welcomeText.en;
-        playAudio(text, i18n.language);
-        // ~130ms per word; cap at 20s
-        const estDuration = Math.min(text.split(' ').length * 130, 20000);
-        setTimeout(() => setMicPulsing(false), estDuration);
+        const url = welcomeUrls[i18n.language] || welcomeUrls.en;
+        playAudio(url, {
+            onEnd: () => setMicPulsing(false),
+            onError: () => setMicPulsing(false)
+        });
     };
 
 

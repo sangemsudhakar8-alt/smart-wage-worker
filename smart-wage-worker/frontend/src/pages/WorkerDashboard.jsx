@@ -2,16 +2,20 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchJobs, fetchApplications, applyForJob, getUserStats, fetchNotifications, updateProfile, fetchLeaves } from '../api';
-import { Volume2, Briefcase, FileText, User, Bell, CheckCircle, Search, PhoneCall, MapPin, Clock, Calendar, Star, Home, ArrowRight, LogOut, ShieldCheck, Mic } from 'lucide-react';
+import { Volume2, Briefcase, FileText, User, Bell, CheckCircle, Search, PhoneCall, MapPin, Clock, Calendar, Star, Home, ArrowRight, LogOut, ShieldCheck, Mic, Map, List } from 'lucide-react';
 import { playAudio } from '../utils/audio';
 import { useToast } from '../contexts/ToastContext';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../firebase";
+import { useVoice } from '../contexts/VoiceContext';
+import VoiceInput from '../components/VoiceInput';
+import JobMap from '../components/JobMap';
 
 const WorkerDashboard = () => {
     const { t, i18n } = useTranslation();
     const { user, loginUser, logout } = useAuth();
     const { showToast } = useToast();
+    const { playGuide, voiceCommand } = useVoice();
 
     // All hooks must be declared before any conditional return
     const [jobs, setJobs] = useState([]);
@@ -23,10 +27,15 @@ const WorkerDashboard = () => {
     const [isApplying, setIsApplying] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [userCoords, setUserCoords] = useState(null);
+    const [locationError, setLocationError] = useState(null);
+    const [showMapView, setShowMapView] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [profileForm, setProfileForm] = useState({ name: '', skills: '', location: '' });
+    const [isProfiling, setIsProfiling] = useState(false);
+    const [profilingStep, setProfilingStep] = useState(0); // 0: Name, 1: Skills, 2: Location
     const fileInputRef = useRef(null);
     const recognitionRef = useRef(null);
+    const prevNotificationsCount = useRef(0);
 
     const navItems = [
         { key: 'home', icon: <Home size={22} />, label: t('home') || 'Home' },
@@ -60,9 +69,17 @@ const WorkerDashboard = () => {
 
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                (err) => console.warn("Geolocation denied", err)
+                (pos) => {
+                    setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                    setLocationError(null);
+                },
+                (err) => {
+                    console.warn("Geolocation denied", err);
+                    setLocationError("Location access denied. Please enable location to find nearby jobs.");
+                }
             );
+        } else {
+            setLocationError("Location not supported by browser.");
         }
 
         try {
@@ -94,7 +111,52 @@ const WorkerDashboard = () => {
             });
             loadData(user);
         }
-    }, [user?.id]);
+    }, [user?.id, playGuide]);
+
+    // Global Voice Command Listener
+    useEffect(() => {
+        if (!voiceCommand) return;
+        const text = voiceCommand.text;
+
+        // If in Guided Profiling Mode, handle steps
+        if (isProfiling) {
+            handleProfilingCommand(text);
+            return;
+        }
+        
+        const isJobOrSearch = /job|search|naukri|kaam|dhundo|khoj|pani|vethuku|udhyogam/i.test(text);
+        const isProfile = /profile|setting|khata|naa vivaralu/i.test(text);
+        const isApp = /application|applied|aavedan|naa dharakhasthulu/i.test(text);
+        const isHome = /home|dashboard|mukhya/i.test(text);
+
+        if (isJobOrSearch) {
+            setView('jobs');
+            const match = text.match(/(?:for|search|khoj|vethuku)\s+(.+)/i);
+            if (match) {
+                setSearchQuery(match[1].replace(/please|now|show me/ig, '').trim());
+            }
+        } else if (isProfile) {
+            setView('settings');
+        } else if (isApp) {
+            setView('applications');
+        } else if (isHome) {
+            setView('home');
+        }
+    }, [voiceCommand, isProfiling]);
+
+    // Celebratory Payday Alert
+    useEffect(() => {
+        if (notifications.length > prevNotificationsCount.current) {
+            const newNotifs = notifications.slice(0, notifications.length - prevNotificationsCount.current);
+            const paydayNotif = newNotifs.find(n => n.type === 'payment' || n.text.toLowerCase().includes('paid'));
+            if (paydayNotif) {
+                const jobTitle = paydayNotif.text.match(/for\s+(.+)/i)?.[1] || "your work";
+                playAudio(t('payday_alert', { jobTitle }), i18n.language);
+                showToast(t('payday_alert', { jobTitle }), 'success');
+            }
+        }
+        prevNotificationsCount.current = notifications.length;
+    }, [notifications, t, i18n.language, showToast]);
 
     // ── Early return AFTER all hooks ──
     if (!user) {
@@ -184,14 +246,7 @@ const WorkerDashboard = () => {
     };
 
     const handleListenGuide = () => {
-        const jobStatus = selectedJob ? t('job_assigned', { title: selectedJob.title }) : t('no_job_assigned');
-        const guideText = t('dashboard_guide_worker', {
-            name: user.name || 'Worker',
-            score: stats?.trustScore || 100,
-            apps: applications.length,
-            jobStatus: jobStatus
-        });
-        speakDirect(guideText);
+        playGuide('workerDashboard');
     };
 
     const handleApply = async (jobId) => {
@@ -209,7 +264,7 @@ const WorkerDashboard = () => {
     };
 
     const handleProfileUpdate = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         try {
             const updated = await updateProfile(user.id, {
                 name: profileForm.name,
@@ -218,8 +273,61 @@ const WorkerDashboard = () => {
             });
             loginUser({ ...user, ...updated });
             showToast(t('profile_updated'), "success");
+            return true;
         } catch (err) {
             showToast("Failed to update profile.", "error");
+            return false;
+        }
+    };
+
+    const startGuidedProfiling = () => {
+        setIsProfiling(true);
+        setProfilingStep(0);
+        setView('settings');
+        playAudio(t('guide_profile_name'), i18n.language);
+    };
+
+    const handleProfilingCommand = async (text) => {
+        if (!isProfiling) return;
+        
+        if (profilingStep === 0) {
+            setProfileForm(prev => ({ ...prev, name: text }));
+            setProfilingStep(1);
+            playAudio(t('guide_profile_skills'), i18n.language);
+        } else if (profilingStep === 1) {
+            setProfileForm(prev => ({ ...prev, skills: text }));
+            setProfilingStep(2);
+            playAudio(t('guide_profile_location'), i18n.language);
+        } else if (profilingStep === 2) {
+            setProfileForm(prev => ({ ...prev, location: text }));
+            setIsProfiling(false);
+            setProfilingStep(0);
+            
+            // Auto save
+            const success = await handleProfileUpdate();
+            if (success) {
+                playAudio(t('profile_updated'), i18n.language);
+            }
+        }
+    };
+
+    const handleHearHistory = async () => {
+        const completed = applications.filter(a => a.status === 'completed' || a.status === 'finished');
+        if (completed.length === 0) {
+            playAudio(t('no_history'), i18n.language);
+            return;
+        }
+
+        playAudio(t('history_intro'), i18n.language);
+        
+        // Sequential audio feedback (simple version)
+        for (const app of completed) {
+            const job = jobs.find(j => j.id === app.jobId);
+            if (job) {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Delay between entries
+                const msg = `${job.title} at ${job.location}. You earned ${job.wage} rupees.`;
+                playAudio(msg, i18n.language);
+            }
         }
     };
 
@@ -268,7 +376,7 @@ const WorkerDashboard = () => {
                         </div>
                         <div>
                             <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.2rem' }}>Worker Dashboard</p>
-                            <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'white', fontWeight: 800 }}>{user.name || 'Worker'}</h2>
+                            <h2 id="dashboard-header" style={{ margin: 0, fontSize: '1.5rem', color: 'white', fontWeight: 800 }}>{user.name || 'Worker'}</h2>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '0.35rem' }}>
                                 <div style={{ width: '120px', height: '6px', borderRadius: '99px', background: 'rgba(255,255,255,0.2)', overflow: 'hidden' }}>
                                     <div style={{ 
@@ -302,6 +410,45 @@ const WorkerDashboard = () => {
                 <div className="animate-in web-grid-parent">
                     {/* LEFT COLUMN: Activity & Jobs */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        
+                        {/* Accessibility Actions */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '0.5rem' }}>
+                            <button 
+                                onClick={handleHearHistory}
+                                className="card flex items-center justify-center gap-2" 
+                                style={{ margin: 0, padding: '1rem', background: 'var(--bg-card)', border: '1.5px solid #e2e8f0', borderRadius: '16px', boxShadow: 'var(--shadow-sm)' }}
+                            >
+                                <div style={{ background: 'rgba(99,102,241,0.1)', padding: '8px', borderRadius: '10px' }}>
+                                    <Volume2 size={20} color="var(--primary-color)" />
+                                </div>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('hear_history')}</span>
+                            </button>
+                            <button 
+                                onClick={startGuidedProfiling}
+                                className="card flex items-center justify-center gap-2" 
+                                style={{ margin: 0, padding: '1rem', background: 'var(--bg-card)', border: '1.5px solid #e2e8f0', borderRadius: '16px', boxShadow: 'var(--shadow-sm)' }}
+                            >
+                                <div style={{ background: 'rgba(16,185,129,0.1)', padding: '8px', borderRadius: '10px' }}>
+                                    <Mic size={20} color="#059669" />
+                                </div>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Guided Setup</span>
+                            </button>
+                        </div>
+
+                        {/* Guided Profiling Overlay Info */}
+                        {isProfiling && (
+                            <div className="animate-in" style={{ background: '#1e1b4b', color: 'white', padding: '1rem', borderRadius: '16px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '2px solid #4338ca', boxShadow: 'var(--shadow-md)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div className="pulse" style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }} />
+                                    <div>
+                                        <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem' }}>Guided Setup: Step {profilingStep + 1}/3</p>
+                                        <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8 }}>Say your answer clearly...</p>
+                                    </div>
+                                </div>
+                                <button className="btn btn-sm btn-ghost" style={{ color: 'white' }} onClick={() => setIsProfiling(false)}>Cancel</button>
+                            </div>
+                        )}
+
                         {/* Today's Status */}
                         <div className="card glass-card hover-glow" style={{ borderLeft: '4px solid var(--primary-color)', margin: 0 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -355,8 +502,55 @@ const WorkerDashboard = () => {
                         </p>
                     </div>
 
+                        {/* Nearby Jobs Section */}
+                        {userCoords && (
+                            <div id="nearby-jobs-home" style={{ marginTop: '0.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                    <h4 style={{ margin: 0, fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-light)', letterSpacing: '0.1em' }}>
+                                        <MapPin size={12} style={{ marginRight: '4px' }} /> Nearby Jobs
+                                    </h4>
+                                    <button onClick={() => setView('jobs')} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.75rem', fontWeight: 600 }}>
+                                        View All Nearby Jobs
+                                    </button>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {(() => {
+                                        const nearby = jobs
+                                            .map(job => ({
+                                                ...job,
+                                                distance: userCoords && job.lat && job.lng ? parseFloat(calculateDistance(userCoords.lat, userCoords.lng, job.lat, job.lng)) : null
+                                            }))
+                                            .filter(j => j.distance !== null)
+                                            .sort((a, b) => a.distance - b.distance)
+                                            .slice(0, 3);
+
+                                        if (nearby.length === 0) return <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center' }}>No jobs found nearby.</p>;
+
+                                        return nearby.map((job, index) => (
+                                            <div key={job.id} className="card hover-lift" style={{ padding: '0.85rem', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-color)', position: 'relative' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>{job.title}</h4>
+                                                        {index === 0 && (
+                                                            <span className="badge" style={{ background: 'var(--secondary-color)', color: 'white', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '10px' }}>
+                                                                Closest
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                                                        ₹{job.wage} · 📍 {job.distance} km away
+                                                    </p>
+                                                </div>
+                                                <button onClick={() => setView('jobs')} className="btn btn-primary btn-sm" style={{ width: 'auto', padding: '5px 12px', fontSize: '0.75rem' }}>Details</button>
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Recent Job Activity / Recommendations */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                        <div id="recommended-jobs" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', marginBottom: '0.5rem' }}>
                             <h4 style={{ margin: 0, fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-light)', letterSpacing: '0.1em' }}>{t('smart_recommendations') || 'Smart Recommendations'}</h4>
                             <button onClick={() => setView('jobs')} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.75rem', fontWeight: 600 }}>{t('see_all') || 'See All'}</button>
                         </div>
@@ -391,7 +585,7 @@ const WorkerDashboard = () => {
                             </div>
                         )}
 
-                        <div className="card" style={{ padding: '1.25rem' }}>
+                        <div id="quick-actions" className="card" style={{ padding: '1.25rem' }}>
                             <h4 style={{ margin: '0 0 1rem', fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-light)' }}>{t('quick_actions') || 'Quick Actions'}</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <button className="btn btn-outline btn-sm w-full text-left" style={{ justifyContent: 'flex-start', padding: '0.75rem' }} onClick={() => setView('jobs')}>
@@ -412,55 +606,128 @@ const WorkerDashboard = () => {
 
             {/* ── JOBS VIEW ── */}
             {view === 'jobs' && (
-                <div className="animate-in" style={{ padding: '0 1rem' }}>
-                    <div className="form-group mb-4" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ position: 'relative', flex: 1 }}>
-                            <Search style={{ position: 'absolute', left: '15px', top: '12px', color: '#9ca3af' }} size={18} />
-                            <input
-                                className="form-input"
-                                style={{ paddingLeft: '44px', width: '100%', margin: 0 }}
-                                placeholder={t('search_jobs') || "e.g. Painter, Driver"}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
+                <div className="animate-in" style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '2rem' }}>
+                    <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h2 style={{ fontSize: '1.4rem', margin: 0 }}>{userCoords ? 'Jobs Near You' : 'All Jobs'}</h2>
+                            {locationError && <p style={{ fontSize: '0.8rem', color: 'var(--danger-color)', margin: '4px 0 0' }}>{locationError}</p>}
                         </div>
-                        <button 
-                            onClick={handleVoiceSearch}
-                            className={`btn ${isListening ? 'btn-primary pulse' : 'btn-outline'}`}
-                            style={{ padding: '0 14px', height: '42px', flexShrink: 0, borderRadius: '12px', borderColor: isListening ? 'transparent' : 'var(--border-color)' }}
-                            title="Search by Voice"
-                        >
-                            <Mic size={20} color={isListening ? 'white' : 'var(--text-light)'} />
-                        </button>
-                    </div>
-                    {filteredJobs.length === 0 && (
-                        <p style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-light)' }}>No jobs found.</p>
-                    )}
-                    {filteredJobs.map(job => {
-                        const distance = calculateDistance(userCoords?.lat, userCoords?.lng, job.lat, job.lng);
-                        return (
-                            <div key={job.id} className="card">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                    <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{job.title}</h3>
-                                    {distance && <span className="badge badge-open" style={{ fontSize: '0.7rem' }}>📍 {distance} km</span>}
-                                </div>
-                                <p style={{ margin: '0.3rem 0' }}>💰 ₹{job.wage} &nbsp;·&nbsp; 📍 {job.location}</p>
-                                {hasApplied(job.id) ? (
-                                    <button className="btn btn-outline w-full" disabled><CheckCircle size={16} /> Applied</button>
-                                ) : (
-                                    <button className="btn btn-primary w-full" disabled={isApplying} onClick={() => handleApply(job.id)}>
-                                        {isApplying ? <span className="spinner" /> : (t('apply') || 'Apply')}
-                                    </button>
-                                )}
+                        {userCoords && (
+                            <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                <button 
+                                    className={`btn btn-sm ${!showMapView ? 'btn-primary' : 'btn-ghost'}`} 
+                                    onClick={() => setShowMapView(false)}
+                                    style={{ padding: '6px 12px' }}
+                                >
+                                    <List size={14} style={{ marginRight: '4px' }} /> List
+                                </button>
+                                <button 
+                                    className={`btn btn-sm ${showMapView ? 'btn-primary' : 'btn-ghost'}`} 
+                                    onClick={() => setShowMapView(true)}
+                                    style={{ padding: '6px 12px' }}
+                                >
+                                    <Map size={14} style={{ marginRight: '4px' }} /> Map
+                                </button>
                             </div>
+                        )}
+                    </div>
+
+                    {!showMapView && (
+                        <div className="form-group mb-2" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ position: 'relative', flex: 1 }}>
+                                <Search style={{ position: 'absolute', left: '15px', top: '12px', color: '#9ca3af' }} size={18} />
+                                <input
+                                    className="form-input"
+                                    style={{ paddingLeft: '44px', width: '100%', margin: 0 }}
+                                    placeholder={t('search_jobs') || "e.g. Painter, Driver"}
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                            <button 
+                                onClick={handleVoiceSearch}
+                                className={`btn ${isListening ? 'btn-primary pulse' : 'btn-outline'}`}
+                                style={{ padding: '0 14px', height: '42px', flexShrink: 0, borderRadius: '12px', borderColor: isListening ? 'transparent' : 'var(--border-color)' }}
+                                title="Search by Voice"
+                            >
+                                <Mic size={20} color={isListening ? 'white' : 'var(--text-light)'} />
+                            </button>
+                        </div>
+                    )}
+
+                    {(() => {
+                        // Advanced Filtering and Sorting logic inline or right before render
+                        const jobsWithDistance = jobs.map(job => {
+                            let distance = null;
+                            if (userCoords && job.lat && job.lng) {
+                                distance = parseFloat(calculateDistance(userCoords.lat, userCoords.lng, job.lat, job.lng));
+                            }
+                            return { ...job, distance };
+                        });
+
+                        let processedJobs = jobsWithDistance.filter(job => 
+                            job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            job.location.toLowerCase().includes(searchQuery.toLowerCase())
                         );
-                    })}
+
+                        if (userCoords) {
+                            processedJobs = processedJobs.filter(job => job.distance === null || job.distance <= 15);
+                            processedJobs.sort((a, b) => {
+                                if (a.distance === null) return 1;
+                                if (b.distance === null) return -1;
+                                return a.distance - b.distance;
+                            });
+                        }
+
+                        if (processedJobs.length === 0) {
+                            return <p style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-light)' }}>No jobs found nearby.</p>;
+                        }
+
+                        if (showMapView) {
+                            return <JobMap userCoords={userCoords} jobs={processedJobs} />;
+                        }
+
+                        return processedJobs.map((job, index) => (
+                            <div key={job.id} className="card" style={{ position: 'relative' }}>
+                                {/* Nearest Highlight */}
+                                {userCoords && index === 0 && job.distance !== null && (
+                                    <div style={{ position: 'absolute', top: '-10px', left: '16px', background: 'var(--secondary-color)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                                        ⭐️ Nearest Match
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', marginTop: userCoords && index===0 ? '8px' : '0' }}>
+                                    <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{job.title}</h3>
+                                    {job.distance !== null && <span className="badge badge-open" style={{ fontSize: '0.75rem', fontWeight: 600 }}>📍 {job.distance} km away</span>}
+                                </div>
+                                <p style={{ margin: '0.3rem 0', fontSize: '0.9rem' }}>💰 ₹{job.wage} &nbsp;·&nbsp; <MapPin size={14} style={{ display: 'inline', marginTop: '-2px' }}/> {job.location}</p>
+                                
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
+                                    {hasApplied(job.id) ? (
+                                        <button className="btn btn-outline" style={{ flex: 1 }} disabled><CheckCircle size={16} /> Applied</button>
+                                    ) : (
+                                        <button className="btn btn-primary" style={{ flex: 1.5 }} disabled={isApplying} onClick={() => handleApply(job.id)}>
+                                            {isApplying ? <span className="spinner" /> : (t('apply') || 'Apply')}
+                                        </button>
+                                    )}
+                                    {job.distance !== null && (
+                                        <button 
+                                            className="btn btn-outline" 
+                                            style={{ flex: 1, borderColor: '#c7d2fe', color: 'var(--primary-color)' }}
+                                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}`, '_blank')}
+                                        >
+                                            <Map size={16} /> Route
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ));
+                    })()}
                 </div>
             )}
 
             {/* ── APPLICATIONS VIEW ── */}
             {view === 'applications' && (
-                <div className="animate-in" style={{ padding: '0 1rem' }}>
+                <div id="my-applications" className="animate-in" style={{ padding: '0 1rem' }}>
                     <h2 style={{ marginBottom: '1rem' }}>{t('applications') || 'My Applications'}</h2>
                     {applications.length === 0 && (
                         <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-light)' }}>No applications yet.</p>
@@ -497,7 +764,10 @@ const WorkerDashboard = () => {
                         </div>
                         <h3 style={{ margin: '0 0 0.25rem' }}>{user.name}</h3>
                         <p style={{ margin: '0 0 1rem', fontSize: '0.85rem', color: 'var(--text-light)' }}>{user.phone}</p>
-                        <button className="btn btn-outline btn-sm" onClick={() => fileInputRef.current?.click()}>Change Photo</button>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button className="btn btn-outline btn-sm" onClick={() => fileInputRef.current?.click()}>Change Photo</button>
+                            <button className="btn btn-primary btn-sm" onClick={startGuidedProfiling}><Mic size={14} /> Voice Setup</button>
+                        </div>
                         <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handlePhotoUpload} />
                     </div>
 
@@ -505,15 +775,15 @@ const WorkerDashboard = () => {
                         <form onSubmit={handleProfileUpdate}>
                             <div className="form-group" style={{ marginBottom: '1rem' }}>
                                 <label className="form-label">Full Name</label>
-                                <input className="form-input" value={profileForm.name} onChange={e => setProfileForm({ ...profileForm, name: e.target.value })} />
+                                <VoiceInput value={profileForm.name} onChange={e => setProfileForm({ ...profileForm, name: e.target.value })} />
                             </div>
                             <div className="form-group" style={{ marginBottom: '1rem' }}>
                                 <label className="form-label">Skills (comma-separated)</label>
-                                <input className="form-input" placeholder="e.g. Painter, Driver, Cook" value={profileForm.skills} onChange={e => setProfileForm({ ...profileForm, skills: e.target.value })} />
+                                <VoiceInput placeholder="e.g. Painter, Driver, Cook" value={profileForm.skills} onChange={e => setProfileForm({ ...profileForm, skills: e.target.value })} />
                             </div>
                             <div className="form-group" style={{ marginBottom: '1rem' }}>
                                 <label className="form-label">Location</label>
-                                <input className="form-input" placeholder="e.g. Hyderabad" value={profileForm.location} onChange={e => setProfileForm({ ...profileForm, location: e.target.value })} />
+                                <VoiceInput placeholder="e.g. Hyderabad" value={profileForm.location} onChange={e => setProfileForm({ ...profileForm, location: e.target.value })} />
                             </div>
                             <button type="submit" className="btn btn-primary w-full">Save Changes</button>
                         </form>

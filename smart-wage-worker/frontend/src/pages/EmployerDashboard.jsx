@@ -1,16 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchJobs, createJob, fetchApplications, selectWorker, markAttendance, submitReview, fetchLeaves, updateLeaveStatus, fetchAttendance } from '../api';
-import { Volume2, Briefcase, Plus, Star, Calendar, UserCheck, XCircle, Users, ChevronRight, BarChart2, CheckCircle, ClipboardList, LogOut, CheckSquare, TrendingUp, Bell, Award } from 'lucide-react';
+import { Volume2, Briefcase, Plus, Star, Calendar, UserCheck, XCircle, Users, ChevronRight, BarChart2, CheckCircle, ClipboardList, LogOut, CheckSquare, TrendingUp, Bell, Award, Mic } from 'lucide-react';
 import { playAudio } from '../utils/audio';
 import { useToast } from '../contexts/ToastContext';
 import { seedDemoData } from '../utils/seedDemoData';
+import { useVoice } from '../contexts/VoiceContext';
+import VoiceInput from '../components/VoiceInput';
 
 const EmployerDashboard = () => {
     const { t, i18n } = useTranslation();
     const { user, logout } = useAuth();
     const { showToast } = useToast();
+    const { playGuide, voiceCommand } = useVoice();
     const [jobs, setJobs] = useState([]);
     const [applications, setApplications] = useState([]);
     const [leaves, setLeaves] = useState([]);
@@ -18,6 +21,8 @@ const EmployerDashboard = () => {
     const [view, setView] = useState('home');
     const [loading, setLoading] = useState(false);
     const [formJob, setFormJob] = useState({ title: '', location: '', wage: '', description: '' });
+    const [isListeningMagic, setIsListeningMagic] = useState(false);
+    const recognitionRef = useRef(null);
 
     const loadData = async (autoSeedIfEmpty = false) => {
         const [js, as, ls, atts] = await Promise.all([
@@ -59,7 +64,31 @@ const EmployerDashboard = () => {
         }
     };
 
-    useEffect(() => { loadData(true); }, []);
+    useEffect(() => { loadData(true); }, [playGuide]);
+
+    // Global Voice Command Listener
+    useEffect(() => {
+        if (!voiceCommand) return;
+        const text = voiceCommand.text;
+        
+        const isPost = /post|new job|naya kaam|kotha pani/i.test(text);
+        const isAttendance = /attendance|haaziri|hajaru/i.test(text);
+        const isLeave = /leave|chutti|selavu/i.test(text);
+        const isHome = /home|dashboard|mukhya/i.test(text);
+        const isJobs = /job|kaam|pani/i.test(text);
+
+        if (isPost) {
+            setView('post');
+        } else if (isAttendance) {
+            setView('attendance');
+        } else if (isLeave) {
+            setView('leaves');
+        } else if (isHome) {
+            setView('home');
+        } else if (isJobs) {
+            setView('jobs');
+        }
+    }, [voiceCommand]);
 
     const handlePostJob = async (e) => {
         e.preventDefault();
@@ -118,6 +147,95 @@ const EmployerDashboard = () => {
         showToast(`Leave ${status}`, status === 'approved' ? 'success' : 'error');
     };
 
+    const handleMarkAllPresent = async () => {
+        const hired = applications.filter(a => a.status === 'selected');
+        if (hired.length === 0) return;
+        
+        setLoading(true);
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            await Promise.all(hired.map(app => markAttendance({
+                jobId: app.jobId,
+                workerId: app.workerId,
+                date: today,
+                present: true
+            })));
+            showToast("All workers marked as present!", "success");
+            loadData();
+        } catch (e) {
+            showToast("Failed to mark all present.", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePayAll = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        const presentToday = applications.filter(app => {
+            const isHired = app.status === 'selected';
+            const isPresent = attendance.find(att => att.workerId === app.workerId && att.jobId === app.jobId && att.date === today && att.present);
+            return isHired && isPresent;
+        });
+
+        if (presentToday.length === 0) {
+            showToast("No workers marked present today to pay.", "info");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Bulk update logic simulation - in a real app, this would be a single API call
+            showToast(`Processing payments for ${presentToday.length} workers...`, "info");
+            // Simulate payment success
+            setTimeout(() => {
+                showToast(`Successfully paid ₹${presentToday.length * 800} to all workers.`, "success");
+                setLoading(false);
+            }, 1500);
+        } catch (e) {
+            showToast("Payment failed.", "error");
+            setLoading(false);
+        }
+    };
+
+    const handleMagicPost = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            showToast("Voice not supported.", "error");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = i18n.language === 'te' ? 'te-IN' : (i18n.language === 'hi' ? 'hi-IN' : 'en-IN');
+        
+        recognition.onstart = () => setIsListeningMagic(true);
+        recognition.onend = () => setIsListeningMagic(false);
+        
+        recognition.onresult = (event) => {
+            const text = event.results[0][0].transcript.toLowerCase();
+            
+            // Basic Parsing Logic
+            const titles = ["painter", "mason", "electrician", "driver", "maid", "laborer", "cleaner", "பெయింటర్", "డ్రైవర్", "పెయింటర్", "పెయింటర్"];
+            const foundTitle = titles.find(t => text.includes(t)) || "General Worker";
+            
+            const wageMatch = text.match(/\d+/);
+            const foundWage = wageMatch ? wageMatch[0] : "500";
+            
+            const locations = ["hyderabad", "mumbai", "delhi", "bangalore", "chennai", "హైదరాబాద్", "ముంబై"];
+            const foundLocation = locations.find(l => text.includes(l)) || "Near Me";
+
+            setFormJob({
+                title: foundTitle.charAt(0).toUpperCase() + foundTitle.slice(1),
+                location: foundLocation.charAt(0).toUpperCase() + foundLocation.slice(1),
+                wage: foundWage,
+                description: `Voice posted: ${text}`
+            });
+            
+            showToast("Job details auto-filled!", "success");
+        };
+
+        recognition.start();
+    };
+
     // Derived stats
     const hiredCount = applications.filter(a => a.status === 'selected').length;
     const pendingApps = applications.filter(a => a.status === 'pending').length;
@@ -171,7 +289,7 @@ const EmployerDashboard = () => {
                 <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '140px', height: '140px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
                 <div className="app-container" style={{ minHeight: 'auto', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <h2 style={{ color: 'white', margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>{user.name}</h2>
+                        <h2 id="dashboard-header" style={{ color: 'white', margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>{user.name}</h2>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '0.4rem' }}>
                             <span style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '0.2rem 0.7rem', borderRadius: '99px', fontSize: '0.72rem', fontWeight: 700, backdropFilter: 'blur(4px)' }}>
                                 ✦ VERIFIED EMPLOYER
@@ -180,7 +298,7 @@ const EmployerDashboard = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                            onClick={() => playAudio(t('dashboard_guide_employer', { name: user.name || 'Employer', jobs: jobs.length, apps: pendingApps }), i18n.language)}
+                            onClick={() => playGuide('employerDashboard')}
                             style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer', backdropFilter: 'blur(4px)' }}
                         >
                             <Volume2 size={18} />
@@ -264,7 +382,7 @@ const EmployerDashboard = () => {
                                     <p style={{ margin: '0.4rem 0 0', fontSize: '0.72rem', opacity: 0.65 }}>7-day wage disbursement trend</p>
                                 </div>
                                 <div style={{ display: 'flex', gap: '20px', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div>
+                                    <div id="active-jobs">
                                         <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.7 }}>{t('active_jobs') || 'Active Jobs'}</p>
                                         <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{jobs.filter(j => j.status === 'open').length}</p>
                                     </div>
@@ -342,31 +460,69 @@ const EmployerDashboard = () => {
 
                         {/* RIGHT COLUMN: Action hub */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                            <div className="card hover-glow" style={{ padding: '1.5rem', borderLeft: '4px solid #d97706' }}>
-                                <h4 style={{ margin: '0 0 1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-light)', letterSpacing: '0.05em' }}>Management Hub</h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <button className="btn btn-primary" onClick={() => setView('post')} style={{ justifyContent: 'flex-start', padding: '1rem' }}>
-                                        <Plus size={20} /> Post New Job
+                            <div className="card hover-glow" style={{ padding: '1.5rem', borderLeft: '4px solid #d97706', background: 'white' }}>
+                                <h4 style={{ margin: '0 0 1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-light)', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <TrendingUp size={16} color="#d97706" /> Management Hub
+                                </h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+                                    <button 
+                                        onClick={() => setView('post')} 
+                                        className="btn btn-primary" 
+                                        style={{ justifyContent: 'space-between', padding: '1.25rem', background: 'linear-gradient(to right, #d97706, #f59e0b)', border: 'none', borderRadius: '16px' }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '10px' }}>
+                                                <Plus size={20} color="white" />
+                                            </div>
+                                            <span style={{ fontWeight: 700 }}>{t('post_job') || 'Post New Job'}</span>
+                                        </div>
+                                        <ChevronRight size={18} opacity={0.6} />
                                     </button>
-                                    <button className="btn btn-outline" onClick={() => setView('attendance')} style={{ justifyContent: 'flex-start', padding: '1rem', color: 'var(--text-dark)' }}>
-                                        <CheckSquare size={20} /> Mark Attendance
+
+                                    <button 
+                                        onClick={() => setView('attendance')} 
+                                        className="btn btn-outline" 
+                                        style={{ justifyContent: 'space-between', padding: '1.25rem', borderRadius: '16px', border: '1.5px solid #e2e8f0' }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ background: 'rgba(217,119,6,0.1)', padding: '8px', borderRadius: '10px' }}>
+                                                <CheckSquare size={20} color="#d97706" />
+                                            </div>
+                                            <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>{t('attendance') || 'Mark Attendance'}</span>
+                                        </div>
+                                        <ChevronRight size={18} color="var(--text-light)" />
                                     </button>
-                                    <button className="btn btn-outline" onClick={() => setView('leaves')} style={{ justifyContent: 'flex-start', padding: '1rem', color: 'var(--text-dark)' }}>
-                                        <Calendar size={20} /> Manage Leaves
+
+                                    <button 
+                                        onClick={() => setView('leaves')} 
+                                        className="btn btn-outline" 
+                                        style={{ justifyContent: 'space-between', padding: '1.25rem', borderRadius: '16px', border: '1.5px solid #e2e8f0' }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ background: 'rgba(245,158,11,0.1)', padding: '8px', borderRadius: '10px' }}>
+                                                <Calendar size={20} color="#f59e0b" />
+                                            </div>
+                                            <span style={{ color: 'var(--text-dark)', fontWeight: 700 }}>{t('leaves') || 'Manage Leaves'}</span>
+                                        </div>
+                                        <ChevronRight size={18} color="var(--text-light)" />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="card" style={{ padding: '1.5rem' }}>
-                                <h4 style={{ margin: '0 0 1rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-light)', letterSpacing: '0.05em' }}>Stats Quick-Look</h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-                                    <div style={{ textAlign: 'center', padding: '1rem', background: 'var(--bg-color)', borderRadius: '12px' }}>
-                                        <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>{jobs.length}</div>
-                                        <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: 'var(--text-light)' }}>Jobs</div>
+                            {/* Quick Stats Summary */}
+                            <div className="card" style={{ padding: '1.5rem', background: 'var(--bg-card)', border: '1.5px solid #e2e8f0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h4 style={{ margin: '0', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-light)', letterSpacing: '0.05em' }}>Stats Quick-Look</h4>
+                                    <BarChart2 size={16} color="var(--text-light)" />
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                                    <div style={{ textAlign: 'center', padding: '1.25rem', background: 'white', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: 'var(--shadow-sm)' }}>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-color)' }}>{jobs.length}</div>
+                                        <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: 'var(--text-light)', fontWeight: 700, marginTop: '4px' }}>Jobs</div>
                                     </div>
-                                    <div style={{ textAlign: 'center', padding: '1rem', background: 'var(--bg-color)', borderRadius: '12px' }}>
-                                        <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>{pendingApps}</div>
-                                        <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: 'var(--text-light)' }}>Pend. Apps</div>
+                                    <div style={{ textAlign: 'center', padding: '1.25rem', background: 'white', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: 'var(--shadow-sm)' }}>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#f59e0b' }}>{pendingApps}</div>
+                                        <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: 'var(--text-light)', fontWeight: 700, marginTop: '4px' }}>Apps</div>
                                     </div>
                                 </div>
                             </div>
@@ -487,22 +643,35 @@ const EmployerDashboard = () => {
                     <div className="animate-in">
                         <h2 style={{ marginBottom: '1rem' }}>Post a New Job</h2>
                         <div className="card" style={{ borderTop: '4px solid #d97706' }}>
+                            <div style={{ marginBottom: '1.5rem', background: '#fffbeb', padding: '1rem', borderRadius: '12px', border: '1px solid #fef3c7', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                <button 
+                                    onClick={handleMagicPost}
+                                    className={`btn ${isListeningMagic ? 'btn-danger pulse' : 'btn-primary'}`}
+                                    style={{ borderRadius: '50%', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(217,119,6,0.2)' }}
+                                >
+                                    <Mic size={24} color="white" />
+                                </button>
+                                <div>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#92400e' }}>{t('magic_post')}</p>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#b45309' }}>{t('magic_post_hint')}</p>
+                                </div>
+                            </div>
                             <form onSubmit={handlePostJob}>
                                 <div className="form-group">
                                     <label className="form-label">Job Title</label>
-                                    <input className="form-input" required value={formJob.title} onChange={e => setFormJob({ ...formJob, title: e.target.value })} placeholder="e.g. Mason, Electrician, Driver" />
+                                    <VoiceInput required value={formJob.title} onChange={e => setFormJob({ ...formJob, title: e.target.value })} placeholder="e.g. Mason, Electrician, Driver" />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Location</label>
-                                    <input className="form-input" required value={formJob.location} onChange={e => setFormJob({ ...formJob, location: e.target.value })} placeholder="e.g. Hyderabad, Mumbai" />
+                                    <VoiceInput required value={formJob.location} onChange={e => setFormJob({ ...formJob, location: e.target.value })} placeholder="e.g. Hyderabad, Mumbai" />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Daily Wage (₹)</label>
-                                    <input className="form-input" type="number" required value={formJob.wage} onChange={e => setFormJob({ ...formJob, wage: e.target.value })} placeholder="e.g. 800" />
+                                    <VoiceInput type="number" required value={formJob.wage} onChange={e => setFormJob({ ...formJob, wage: e.target.value })} placeholder="e.g. 800" />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Description (optional)</label>
-                                    <input className="form-input" value={formJob.description} onChange={e => setFormJob({ ...formJob, description: e.target.value })} placeholder="e.g. Construction work, 6 days/week" />
+                                    <VoiceInput value={formJob.description} onChange={e => setFormJob({ ...formJob, description: e.target.value })} placeholder="e.g. Construction work, 6 days/week" />
                                 </div>
                                 <button type="submit" className="btn btn-primary" style={{ background: 'linear-gradient(to right, #d97706, #f59e0b)', boxShadow: '0 4px 14px rgba(217,119,6,0.4)' }} disabled={loading}>
                                     {loading ? <span className="spinner" /> : <><Plus size={18} /> Post Job</>}
@@ -548,7 +717,13 @@ const EmployerDashboard = () => {
                 {/* ── ATTENDANCE VIEW ── */}
                 {view === 'attendance' && (
                     <div className="animate-in">
-                        <h2 style={{ marginBottom: '1rem' }}>Mark Attendance</h2>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h2 style={{ margin: 0 }}>Mark Attendance</h2>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button className="btn btn-secondary btn-sm" onClick={handleMarkAllPresent} disabled={loading}><CheckCircle size={14} /> {t('bulk_present')}</button>
+                                <button className="btn btn-primary btn-sm" onClick={handlePayAll} disabled={loading} style={{ background: '#059669' }}><Plus size={14} /> {t('pay_all')}</button>
+                            </div>
+                        </div>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '1.5rem' }}>
                             Mark daily presence for your hired workers. Status is for: <strong>{new Date().toDateString()}</strong>
                         </p>

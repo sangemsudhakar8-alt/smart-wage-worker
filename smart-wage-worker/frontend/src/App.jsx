@@ -8,6 +8,8 @@ import EmployerDashboard from './pages/EmployerDashboard';
 import LandingPage from './pages/LandingPage';
 import './i18n';
 import { Moon, Sun } from 'lucide-react';
+import { VoiceProvider } from './contexts/VoiceContext';
+import FloatingVoiceAssistant from './components/FloatingVoiceAssistant';
 
 const PrivateRoute = ({ children, role }) => {
     const { user } = useAuth();
@@ -57,9 +59,12 @@ const AppContent = () => {
 function App() {
     return (
         <AuthProvider>
-            <Router>
-                <AppContent />
-            </Router>
+            <VoiceProvider>
+                <Router>
+                    <AppContent />
+                    <FloatingVoiceAssistant />
+                </Router>
+            </VoiceProvider>
         </AuthProvider>
     );
 }

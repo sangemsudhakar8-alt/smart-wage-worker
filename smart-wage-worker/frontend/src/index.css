@@ -496,3 +496,23 @@ p { margin-bottom: 1rem; color: var(--text-light); }
     }
 }
 
+/* ── VOICE ASSISTANT HIGHLIGHT ── */
+.voice-highlight {
+    outline: 3px solid var(--primary-color) !important;
+    outline-offset: 4px;
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.6) !important;
+    position: relative;
+    z-index: 40;
+    transition: all 0.3s ease-in-out;
+    animation: voice-pulse 2s infinite;
+}
+
+@keyframes voice-pulse {
+    0% {
+        box-shadow: 0 0 0 0px rgba(99, 102, 241, 0.4);
+    }
+    100% {
+        box-shadow: 0 0 0 20px rgba(99, 102, 241, 0);
+    }
+}
+
