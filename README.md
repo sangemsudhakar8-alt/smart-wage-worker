@@ -1,90 +1,483 @@
+<div align="center">
+
 # 👷 Smart Wage Worker
 
-**Empowering Rural Workforce through Transparency, Trust, and Voice.**
+### AI-Based Daily Workforce Management Platform
 
-Smart Wage Worker is an accessibility-first management system designed to bridge the gap between rural daily-wage workers and employers. By combining a **multilingual voice assistant** with a **dynamic trust scoring system**, we ensure that even workers with limited digital literacy can navigate the economy and secure fair wages.
+**Empowering Rural Workforce through Transparency, Trust, Accessibility, and AI**
 
----
-
-## 🚀 Live Demo
-**Production URL**: [https://smart-wage.web.app](https://smart-wage.web.app)
-*(Note: Use the credentials below for the guided panel demo)*
-
-### 🔑 Demo Credentials
-| Role | Mobile Number | OTP |
-| :--- | :--- | :--- |
-| **Worker (Guided)** | `1234567890` | `123456` |
-| **Employer (Pro)** | `9876543210` | `123456` |
-
----
-
-## 🌟 Key Features
-
-### 🎤 Accessibility-First Navigation
-- **Multilingual Voice Assistant**: Guided navigation in English, Telugu, and Hindi.
-- **Voice-to-Job Posting**: Employers can post jobs simply by speaking (e.g., "I need 5 painters").
-- **Visual-Guided Setup**: Step-by-step audio guidance for profile completion.
-
-### 🛡️ Trust & Transparency
-- **Worker Trust Score**: A dynamic score (0-100%) based on attendance, reliability, and ratings.
-- **Real-time Attendance**: GPS/Selfie-verified daily attendance marking.
-- **Activity Timeline**: Visual tracking of application progress (Applied → Hired → Paid).
-
-### 📱 Premium Dual Dashboards
-- **Worker Interface (Indigo)**: Nearby jobs, smart recommendations, and "Hear My History" audio summaries.
-- **Employer Interface (Amber)**: Workforce management, hiring pipelines, and bulk wage disbursement.
-
----
-
-## 🏗️ Technical Architecture
-
-<p align="center">
-<img src="https://raw.githubusercontent.com/sangemsudhakar8-alt/smart-wage-worker/main/src/assets/architecture.svg" width="1000" alt="Smart Wage Worker System Architecture">
+<p>
+<img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" />
+<img src="https://img.shields.io/badge/Node.js-Express-339933?logo=node.js" />
+<img src="https://img.shields.io/badge/Firebase-Firestore-FFCA28?logo=firebase" />
+<img src="https://img.shields.io/badge/PWA-Enabled-5A0FC8" />
+<img src="https://img.shields.io/badge/Build-Passing-success" />
+<img src="https://img.shields.io/badge/ESLint-0%20Warnings-success" />
+<img src="https://img.shields.io/badge/License-MIT-blue" />
 </p>
 
-> 📘 **[View Detailed Technical Architecture Documentation](src/assets/ARCHITECTURE.md)**
+**React • Express.js • Firebase • Firestore • AI • Voice Assistant • GPS Tracking • Progressive Web App**
 
-### **Frontend Architecture**
-- **React 18 + Vite**: High-performance rendering and lightning-fast builds.
-- **State Management**: React Context API for Auth, Theme, and Voice orchestration.
-- **I18n Engine**: `i18next` for seamless real-time language switching without page reloads.
-- **PWA Ready**: Offline-first support with service workers for low-connectivity rural areas.
-
-### **Backend & Security**
-- **Firebase Firestore**: Scalable NoSQL database with strict security rules.
-- **Firebase Auth**: OTP-based authentication for mobile-first accessibility.
-- **Firebase Storage**: Secure hosting for worker profile verification images.
-- **Custom Trust Algorithm**: Real-time server-side logic (simulated in API) calculating scores based on multidimensional data points.
-
-### **Design System**
-- **Glassmorphism**: Modern, premium aesthetic with high-contrast accessibility.
-- **Responsive Layout**: Fluid breakpoints ensuring a seamless experience on $150 rural smartphones.
-- **Micro-Animations**: Lucide-driven iconography with smooth CSS transitions for intuitive feedback.
+</div>
 
 ---
 
-## 🛠️ Deployment Instructions
+# 📖 Table of Contents
 
-### **Local Setup**
-1.  **Clone & Install**: `npm install`
-2.  **Environment**: Add Firebase config to `src/firebase.js`.
-3.  **Dev Server**: `npm run dev`
-
-### **Production Deployment**
-1.  **Build**: `npm run build`
-2.  **Deploy**: `firebase deploy` (requires Firebase CLI)
+- Overview
+- Live Demo
+- Demo Credentials
+- Key Features
+- System Architecture
+- Technology Stack
+- Project Workflow
+- Folder Structure
+- REST APIs
+- Database Design
+- Security
+- Progressive Web App
+- Installation
+- Deployment
+- Engineering Practices
+- Roadmap
+- Future Improvements
+- Contributing
+- Author
+- License
 
 ---
 
-## 👨‍🏫 Implementation Review Status
+# 📖 Overview
 
-- [x] **Universal Accessibility**: Voice assistant covers 100% of critical user journeys.
-- [x] **Strict Security**: Implemented RBAC Firestore rules for production-grade data protection.
-- [x] **Production Polish**: 100% Profile Strength celebrations and dynamic "Hear My History" audio.
-- [x] **Build Stability**: Verified ESM export/import logic for seamless Vite/Firebase deployment.
-- [x] **Real-time Analytics**: Workforce intelligence and worker growth dashboards are fully data-driven.
+Smart Wage Worker is a modern full-stack workforce management platform designed to connect **daily-wage workers** and **employers** through a secure, AI-powered, and accessibility-first ecosystem.
+
+The platform focuses on solving real-world challenges faced by rural workers by integrating:
+
+- 🎤 Multilingual Voice Assistant
+- 📍 GPS Attendance
+- ⭐ Dynamic Trust Score
+- 📱 QR Worker Profiles
+- 📊 Analytics Dashboard
+- 🗺️ Live Worker Tracking
+- 🔒 Secure Firebase Authentication
+- 🌐 Progressive Web Application
 
 ---
 
-## 📄 License
-This project is an Advanced Agentic Coding demonstration for the **Smart Wage Worker** platform.
+# 🎯 Problem Statement
+
+Millions of daily-wage workers still depend on manual hiring processes with little transparency.
+
+Common challenges include:
+
+- Fake worker profiles
+- Attendance fraud
+- Lack of trust
+- Language barriers
+- Limited digital literacy
+- No centralized workforce management
+
+Smart Wage Worker addresses these issues through AI-assisted workforce management.
+
+---
+
+# 🚀 Live Demo
+
+### 🌐 Production Website
+
+https://smart-wage.web.app
+
+---
+
+# 🔑 Demo Credentials
+
+| Role | Mobile | OTP |
+|------|----------|----------|
+| Worker | 1234567890 | 123456 |
+| Employer | 9876543210 | 123456 |
+
+---
+
+
+
+# 🌟 Key Features
+
+## 👷 Worker Portal
+
+- Secure OTP Login
+- Nearby Job Discovery
+- Job Applications
+- Attendance Management
+- Leave Requests
+- QR Worker Identity
+- GPS Location Tracking
+- Trust Score Dashboard
+- Voice Assistant
+- Profile Management
+
+---
+
+## 🏢 Employer Portal
+
+- Create Jobs
+- Workforce Management
+- Worker Tracking
+- Attendance Monitoring
+- Analytics Dashboard
+- Trust Score Analysis
+- Hiring Pipeline
+- Workforce Insights
+
+---
+
+## 🤖 AI & Accessibility
+
+- Multilingual Voice Assistant
+- Voice Guided Navigation
+- Voice Job Posting
+- Smart Workforce Insights
+- Accessibility-first Design
+- Future AI Job Recommendations
+
+---
+
+# 🏗️ System Architecture
+
+<p align="center">
+<img src="src/assets/architecture.svg" width="100%">
+</p>
+
+Detailed architecture documentation:
+
+```
+src/assets/ARCHITECTURE.md
+```
+
+---
+
+# ⚙️ Technology Stack
+
+| Category | Technologies |
+|------------|------------------------------------------------|
+| Frontend | React 19, Vite, Tailwind CSS |
+| State Management | React Context API |
+| Backend | Node.js, Express.js |
+| Authentication | Firebase Authentication |
+| Database | Cloud Firestore |
+| Storage | Firebase Storage |
+| Backend SDK | Firebase Admin SDK |
+| Maps | React Leaflet |
+| Charts | Recharts |
+| Internationalization | i18next |
+| Icons | Lucide React |
+| Deployment | Firebase Hosting |
+| Version Control | Git, GitHub |
+
+---
+
+# 🔄 Application Workflow
+
+```
+Worker Login
+        │
+        ▼
+Firebase Authentication
+        │
+        ▼
+Backend Verification
+        │
+        ▼
+Worker Dashboard
+        │
+        ▼
+Browse Jobs
+        │
+        ▼
+Apply
+        │
+        ▼
+Employer Dashboard
+        │
+        ▼
+Attendance
+        │
+        ▼
+Trust Score Update
+        │
+        ▼
+Analytics Dashboard
+```
+
+---
+
+# 🏛️ Backend Architecture
+
+```
+backend
+
+├── config
+├── controllers
+├── middleware
+├── routes
+├── services
+├── utils
+└── server.js
+```
+
+---
+
+# 📂 Frontend Structure
+
+```
+src
+
+├── assets
+├── components
+├── contexts
+├── hooks
+├── pages
+├── services
+├── utils
+└── App.jsx
+```
+
+---
+
+# 📡 REST APIs
+
+| Method | Endpoint | Description |
+|--------|---------------------------|------------------------------|
+| GET | /api/health | Server Health |
+| POST | /api/auth/session | Authenticate User |
+| GET | /api/jobs | Fetch Jobs |
+| POST | /api/jobs | Create Job |
+| GET | /api/users/:id/stats | Worker Dashboard |
+| POST | /api/attendance | Mark Attendance |
+
+---
+
+# 🗄️ Database Design
+
+```
+Users
+│
+├── Worker
+├── Employer
+│
+Jobs
+│
+Applications
+│
+Attendance
+│
+Trust Score
+│
+Reviews
+```
+
+---
+
+# 🔒 Security
+
+- Firebase Authentication
+- OTP Verification
+- Firebase Admin SDK
+- Firestore Security Rules
+- Protected REST APIs
+- Role Based Access Control (RBAC)
+- Input Validation
+- Secure API Sessions
+
+---
+
+# 📱 Progressive Web Application
+
+- Offline Support
+- Installable Application
+- Service Worker
+- Web Manifest
+- Mobile Optimized
+
+---
+
+# 📊 Project Status
+
+| Module | Status |
+|---------|---------|
+| React Frontend | ✅ |
+| Express Backend | ✅ |
+| Firebase Authentication | ✅ |
+| Firestore | ✅ |
+| Firebase Admin SDK | ✅ |
+| Attendance | ✅ |
+| QR Profiles | ✅ |
+| GPS Tracking | ✅ |
+| Geo-Fencing | ✅ |
+| Analytics Dashboard | ✅ |
+| Voice Assistant | ✅ |
+| Trust Score | ✅ |
+| Progressive Web App | ✅ |
+| Production Deployment | ✅ |
+| ESLint | ✅ Zero Errors & Warnings |
+
+---
+
+# 💻 Local Installation
+
+Clone repository
+
+```bash
+git clone https://github.com/sangemsudhakar8-alt/smart-wage-worker.git
+```
+
+Install dependencies
+
+```bash
+npm install
+```
+
+Run frontend
+
+```bash
+npm run dev
+```
+
+Run backend
+
+```bash
+cd backend
+npm install
+npm start
+```
+
+---
+
+# 🚀 Production Deployment
+
+Build
+
+```bash
+npm run build
+```
+
+Deploy
+
+```bash
+firebase deploy
+```
+
+---
+
+# 🧪 Engineering Practices
+
+- Component-Based Architecture
+- Service Layer Pattern
+- RESTful API Design
+- Context API State Management
+- Firebase Admin SDK
+- Progressive Web App
+- Responsive Design
+- Feature Branch Workflow
+- Git Version Control
+- ESLint Code Quality
+
+---
+
+# 📈 Performance & Code Quality
+
+- ✅ Zero ESLint Errors
+- ✅ Zero ESLint Warnings
+- ✅ Production Build Verified
+- ✅ Backend API Tested
+- ✅ Firebase Security Rules
+- ✅ Modular Architecture
+- ✅ Responsive Design
+
+---
+
+# 🗺️ Roadmap
+
+## Completed
+
+- [x] OTP Authentication
+- [x] Attendance
+- [x] GPS Tracking
+- [x] Trust Score
+- [x] Voice Assistant
+- [x] QR Worker Profile
+- [x] Analytics Dashboard
+- [x] Geo-Fencing
+- [x] Progressive Web App
+
+## Upcoming
+
+- [ ] Real-Time Chat
+- [ ] Push Notifications
+- [ ] AI Job Recommendation
+- [ ] Payroll Automation
+- [ ] Admin Dashboard
+- [ ] Predictive Workforce Analytics
+
+---
+
+# 🤝 Contributing
+
+Contributions are welcome.
+
+1. Fork this repository
+
+2. Create a feature branch
+
+```
+git checkout -b feature-name
+```
+
+3. Commit changes
+
+```
+git commit -m "Add feature"
+```
+
+4. Push
+
+```
+git push origin feature-name
+```
+
+5. Open a Pull Request
+
+---
+
+# 👨‍💻 Author
+
+**Sangam Sudhakar**
+
+📧 Email
+
+```
+sangemsudhakar8@gmail.com
+```
+
+💼 LinkedIn
+
+https://www.linkedin.com/in/sangam-sudhakar-52590538a/
+
+💻 GitHub
+
+https://github.com/sangemsudhakar8-alt
+
+---
+
+# 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+<div align="center">
+
+### ⭐ If you found this project helpful, consider giving it a Star!
+
+Made with ❤️ using React, Express.js, Firebase, and AI.
+
+</div>
