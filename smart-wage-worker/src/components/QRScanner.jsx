@@ -3,6 +3,13 @@ import { Html5QrcodeScanner } from 'html5-qrcode';
 
 const QRScanner = ({ onScanSuccess, onScanError }) => {
     const scannerRef = useRef(null);
+    const onScanSuccessRef = useRef(onScanSuccess);
+    const onScanErrorRef = useRef(onScanError);
+
+    useEffect(() => {
+        onScanSuccessRef.current = onScanSuccess;
+        onScanErrorRef.current = onScanError;
+    }, [onScanSuccess, onScanError]);
 
     useEffect(() => {
         // Initialize scanner
@@ -25,12 +32,12 @@ const QRScanner = ({ onScanSuccess, onScanError }) => {
                     if (data.type === 'attendance_check') {
                         // Success! Stop scanner and send back data
                         scanner.clear();
-                        onScanSuccess(data);
+                        if (onScanSuccessRef.current) onScanSuccessRef.current(data);
                     } else {
-                        onScanError("Invalid QR Code Type.");
+                        if (onScanErrorRef.current) onScanErrorRef.current("Invalid QR Code Type.");
                     }
-                } catch (e) {
-                    onScanError("Could not parse QR code.");
+                } catch {
+                    if (onScanErrorRef.current) onScanErrorRef.current("Could not parse QR code.");
                 }
             },
             (errorMessage) => {

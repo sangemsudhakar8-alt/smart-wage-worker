@@ -116,8 +116,9 @@ export const useGeoTracking = (active, attendanceId, jobId, job, userId) => {
                 },
                 { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
             );
-        } else {
-            // Cleanup on deactivation
+        }
+
+        return () => {
             if (watchIdRef.current) {
                 navigator.geolocation.clearWatch(watchIdRef.current);
                 watchIdRef.current = null;
@@ -127,14 +128,6 @@ export const useGeoTracking = (active, attendanceId, jobId, job, userId) => {
                 geoFenceIntervalRef.current = null;
             }
             geofenceStartedRef.current = false;
-            setCurrentDistance(null);
-            setGeofenceStatus(null);
-            setLocationError(null);
-        }
-
-        return () => {
-            if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
-            if (geoFenceIntervalRef.current) clearInterval(geoFenceIntervalRef.current);
         };
     }, [active, attendanceId, jobId, job, userId, t, i18n.language, showToast]);
 

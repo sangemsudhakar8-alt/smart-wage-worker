@@ -145,7 +145,7 @@ const WorkforceAnalytics = ({ jobs = [], applications = [], attendance = [] }) =
                         .sort((a, b) => (b.workerTrustScore || 0) - (a.workerTrustScore || 0))
                         .filter((app, index, self) => index === self.findIndex((t) => t.workerId === app.workerId))
                         .slice(0, 5)
-                        .map((app, i) => (
+                        .map((app) => (
                             <div key={app.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '12px', background: 'var(--bg-lighter)', border: '1px solid var(--border-color)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #d97706, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '0.9rem' }}>

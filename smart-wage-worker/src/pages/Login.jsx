@@ -88,6 +88,7 @@ const Login = () => {
             // Clear visual feedback after 3 seconds
             setTimeout(() => setSpokenText(''), 3000);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [voiceCommand, status, phone, otp, i18n.language, t]);
 
     const speakText = (textKey) => playAudio(t(textKey), i18n.language);
@@ -293,7 +294,7 @@ const Login = () => {
                                 const employerHint = role === 'employer' && phone ? `mock_user_${phone}` : undefined;
                                 await seedDemoData(employerHint);
                                 setPhone('1234567890');
-                            } catch (e) {
+                            } catch {
                                 showToast(t('seed_failed_toast'), 'error');
                             } finally {
                                 setSeeding(false);

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { fetchJobs, createJob, fetchApplications, selectWorker, markAttendance, submitReview, fetchLeaves, updateLeaveStatus, fetchAttendance, subscribeToJobs, subscribeToApplications, subscribeToNotifications, subscribeToAttendance, subscribeToWorkerLocations, subscribeToActiveLocations, addNotification } from '../api';
+import { fetchJobs, createJob, fetchApplications, selectWorker, markAttendance, submitReview, fetchLeaves, updateLeaveStatus, fetchAttendance, subscribeToJobs, subscribeToApplications, subscribeToAttendance, subscribeToWorkerLocations, subscribeToActiveLocations, addNotification } from '../api';
 import { Volume2, Briefcase, Plus, Star, Calendar, UserCheck, XCircle, Users, ChevronRight, BarChart2, CheckCircle, ClipboardList, LogOut, CheckSquare, TrendingUp, Bell, Award, Mic, PhoneCall, Camera as CamIcon, MapPin, Activity, HelpCircle, Map as MapIcon, Navigation } from 'lucide-react';
 import TrackingMap from '../components/TrackingMap';
 import { calculateDistance, DEFAULT_TRACKING_RADIUS } from '../utils/geoUtils';
@@ -46,7 +46,7 @@ const EmployerDashboard = () => {
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const { showToast } = useToast();
-    const { playGuide, voiceCommand, lastIntent } = useVoice();
+    const { playGuide, lastIntent } = useVoice();
     const lastNotifiedRef = useRef({});
     const [jobs, setJobs] = useState([]);
     const [trackingRadius, setTrackingRadius] = useState(DEFAULT_TRACKING_RADIUS);
@@ -57,7 +57,6 @@ const EmployerDashboard = () => {
     const [simulating, setSimulating] = useState(false);
     const [view, setView] = useState('home');
     const [loading, setLoading] = useState(false);
-    const [isRefreshing, setIsRefreshing] = useState(false);
     const [formJob, setFormJob] = useState({ title: '', location: '', wage: '', description: '', radius: 100 });
     const [isListeningMagic, setIsListeningMagic] = useState(false);
     const [isReviewingMagic, setIsReviewingMagic] = useState(false);
@@ -89,7 +88,6 @@ const EmployerDashboard = () => {
     }, [view, activeWorkers, user, jobs]);
     const [isPaying, setIsPaying] = useState(false);
     const [workerLocations, setWorkerLocations] = useState({});
-    const recognitionRef = useRef(null);
 
     const loadData = async (autoSeedIfEmpty = false) => {
         const [js, as, ls, atts] = await Promise.all([
@@ -200,6 +198,7 @@ const EmployerDashboard = () => {
             unsubLoc();
             unsubActive();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
 
     // Global Voice Command Listener (REFACTORED WITH ADVANCED NLP)
@@ -222,7 +221,7 @@ const EmployerDashboard = () => {
         } else if (lastIntent.type === 'action' && lastIntent.action === 'help') {
             playGuide('employerDashboard');
         }
-    }, [lastIntent]);
+    }, [lastIntent, playGuide]);
 
     const handlePostJob = async (e) => {
         e.preventDefault();
@@ -235,7 +234,7 @@ const EmployerDashboard = () => {
                 });
                 lat = pos.coords.latitude;
                 lng = pos.coords.longitude;
-            } catch (err) {
+            } catch {
                 console.warn("Location permission not granted.");
             }
         }
@@ -259,7 +258,7 @@ const EmployerDashboard = () => {
             await loadData();
             showToast("Worker has been hired successfully!", "success");
             setConfirmSelectWorker(null);
-        } catch (e) {
+        } catch {
             showToast("Failed to hire worker.", "error");
         } finally {
             setLoading(false);
@@ -352,7 +351,7 @@ const EmployerDashboard = () => {
             // Simulate payment success
             await new Promise(resolve => setTimeout(resolve, 2000));
             showToast(`Successfully paid ₹${presentToday.length * 800} to all workers.`, "success");
-        } catch (e) {
+        } catch {
             showToast("Payment failed.", "error");
         } finally {
             setIsPaying(false);

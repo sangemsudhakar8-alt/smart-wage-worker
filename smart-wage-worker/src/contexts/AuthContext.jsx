@@ -1,21 +1,20 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-
-    useEffect(() => {
+    const [user, setUser] = useState(() => {
         try {
             const storedUser = localStorage.getItem('wageUser');
             if (storedUser && storedUser !== 'undefined') {
-                setUser(JSON.parse(storedUser));
+                return JSON.parse(storedUser);
             }
         } catch (e) {
             console.warn('Invalid auth state in storage, resetting...', e);
             localStorage.removeItem('wageUser');
         }
-    }, []);
+        return null;
+    });
 
     const loginUser = (userData) => {
         setUser(userData);

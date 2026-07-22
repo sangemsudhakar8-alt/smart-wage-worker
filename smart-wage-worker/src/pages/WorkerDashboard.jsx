@@ -2,13 +2,11 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { fetchJobs, fetchApplications, applyForJob, getUserStats, fetchNotifications, updateProfile, subscribeToJobs, subscribeToApplications, subscribeToNotifications, markAttendance, subscribeToAttendance, cancelApplication, updateLiveLocation, startGeoFence, updateGeoFenceLocation, uploadProfileImage } from '../api';
+import { fetchJobs, fetchApplications, applyForJob, getUserStats, fetchNotifications, updateProfile, subscribeToJobs, subscribeToApplications, subscribeToNotifications, markAttendance, subscribeToAttendance, cancelApplication, uploadProfileImage } from '../api';
 import { Volume2, Briefcase, FileText, User, Bell, CheckCircle, Search, PhoneCall, MapPin, Clock, Calendar, Star, Home, ArrowRight, LogOut, ShieldCheck, Mic, Map, List, Camera, X, Moon, Sun, TrendingUp, Check, Upload, Trash2, Info, Award, Crosshair, QrCode } from 'lucide-react';
 import { playAudio } from '../utils/audio';
 import { calculateDistance } from '../utils/geoUtils';
 import { useToast } from '../contexts/ToastContext';
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../firebase";
 import { useVoice } from '../contexts/VoiceContext';
 import VoiceInput from '../components/VoiceInput';
 import JobMap from '../components/JobMap';
@@ -33,7 +31,7 @@ const WorkerDashboard = () => {
     const [jobs, setJobs] = useState([]);
     const [applications, setApplications] = useState([]);
     const [stats, setStats] = useState(null);
-    const [notifications, setNotifications] = useState([]);
+    const [_notifications, setNotifications] = useState([]);
     const [view, setView] = useState('home');
     const [searchQuery, setSearchQuery] = useState('');
     const [isApplying, setIsApplying] = useState(false);
@@ -45,7 +43,7 @@ const WorkerDashboard = () => {
     const [profileForm, setProfileForm] = useState({ name: '', skills: '', location: '' });
     const [isProfiling, setIsProfiling] = useState(false);
     const [isCheckingIn, setIsCheckingIn] = useState(false);
-    const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+    const [showSuccessOverlay, _setShowSuccessOverlay] = useState(false);
     const [profilingStep, setProfilingStep] = useState(0); 
     const [isUploading, setIsUploading] = useState(false);
     const [confirmApplyJob, setConfirmApplyJob] = useState(null);
@@ -60,7 +58,6 @@ const WorkerDashboard = () => {
     const [confirmCancelApp, setConfirmCancelApp] = useState(null);
     const [showQRModal, setShowQRModal] = useState(false);
     const prevBadgesCount = useRef(0);
-    const prevNotificationsCount = useRef(0);
 
     const { selectedApp, selectedJob } = useMemo(() => {
         const app = applications.find(a => a.status === 'selected');
@@ -195,6 +192,7 @@ const WorkerDashboard = () => {
             unsubNotifs();
             unsubAtt();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
 
     // Global Voice Command Listener (REFACTORED WITH ADVANCED NLP)
@@ -238,6 +236,7 @@ const WorkerDashboard = () => {
             default:
                 break;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lastIntent, voiceCommand, isProfiling]);
 
     // Profile Completion Celebration Logic
@@ -269,14 +268,14 @@ const WorkerDashboard = () => {
         if (user && view === 'home') {
             const greeting = i18n.language === 'te' 
                 ? "నమస్కారం! ఉండండి, మీ పనిని ఇంకా దగ్గరుండి చూద్దాం."
-                : (i18n.language === 'hi' ? "नमस्ते! चलिए आपके काम पर नज़र रखते हैं。" : "Welcome! Let's keep a close eye on your work progress.");
+                : (i18n.language === 'hi' ? "नमस्ते! चलिए आपके काम पर नज़र रखते हैं।" : "Welcome! Let's keep a close eye on your work progress.");
             
             const timer = setTimeout(() => {
                 playAudio(greeting, i18n.language);
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [view, i18n.language]);
+    }, [view, i18n.language, user]);
 
     useEffect(() => {
         if (stats?.badges?.length > prevBadgesCount.current && prevBadgesCount.current > 0) {
@@ -326,8 +325,6 @@ const WorkerDashboard = () => {
             )
         ).slice(0, 3)
         : jobs.filter(j => j.status === 'open' && !hasApplied(j.id)).slice(0, 2);
-
-    const recentJobs = jobs.filter(j => j.status === 'open' && !hasApplied(j.id)).slice(0, 2);
 
     // ── Handlers ──
     const speakDirect = (text) => playAudio(text, i18n.language);
@@ -383,7 +380,7 @@ const WorkerDashboard = () => {
             await applyForJob(jobId, user.id);
             speakText('applied');
             showToast(t('apply_success') + " " + t('wait_employer_choice'), "success");
-        } catch (e) {
+        } catch {
             showToast(t('apply_fail'), "error");
         } finally {
             setIsApplying(false);
@@ -403,7 +400,7 @@ const WorkerDashboard = () => {
             await cancelApplication(confirmCancelApp);
             showToast(t('app_cancelled') || "Application cancelled successfully", "success");
             // No need to manually reload, the subscribeToApplications listener handles it
-        } catch (err) {
+        } catch {
             showToast(t('cancel_fail'), "error");
         } finally {
             setIsLoading(false);
@@ -420,7 +417,8 @@ const WorkerDashboard = () => {
             const url = await uploadProfileImage(user.id, file);
             loginUser({ ...user, photoURL: url }); // Refresh user context with new photoURL
             showToast(t('profile_img_updated'), "success");
-        } catch (err) {
+        } catch {
+            showToast(t('profile_img_fail'), "error");
             showToast(t('profile_img_fail'), "error");
         } finally {
             setIsUploading(false);
@@ -522,7 +520,7 @@ const WorkerDashboard = () => {
 
             showToast(t('profile_updated'), "success");
             return true;
-        } catch (err) {
+        } catch {
             showToast("Failed to update profile.", "error");
             return false;
         }
@@ -592,24 +590,6 @@ const WorkerDashboard = () => {
                     : `Finished ${job.title} job. You earned ${job.wage} rupees.`;
                 playAudio(msg, i18n.language);
             }
-        }
-    };
-
-    const handlePhotoUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setIsLoading(true);
-        try {
-            const storageRef = ref(storage, `avatars/${user.id}`);
-            await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(storageRef);
-            const updated = await updateProfile(user.id, { avatarUrl: downloadURL });
-            loginUser({ ...user, ...updated });
-            showToast(t('profile_img_updated') || "Photo uploaded!", "success");
-        } catch (err) {
-            showToast(t('profile_img_fail') || "Failed to upload image.", "error");
-        } finally {
-            setIsLoading(false);
         }
     };
 

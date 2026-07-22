@@ -165,7 +165,7 @@ export const selectWorker = async (req, res) => {
       }
 
       const appData = appSnap.data();
-      const { jobId, workerId } = appData;
+      const { jobId } = appData;
 
       const jobRef = db.collection('jobs').doc(jobId);
       const jobSnap = await transaction.get(jobRef);

@@ -42,7 +42,7 @@ const redWorkerIcon = new L.Icon({
 });
 
 // Component to handle map view adjustments
-const MapController = ({ workerLoc, jobLoc, radius }) => {
+const MapController = ({ workerLoc, jobLoc }) => {
     const map = useMap();
     
     useEffect(() => {
@@ -65,10 +65,10 @@ const TrackingMap = ({ worker, job, radius = 100, onSimulate }) => {
     const currentLang = i18n.language || 'en';
     
     const workerLoc = worker?.currentLocation;
-    const jobLoc = { lat: job?.lat, lng: job?.lng };
+    const jobLoc = useMemo(() => (job?.lat && job?.lng ? { lat: job.lat, lng: job.lng } : null), [job]);
     
     const distance = useMemo(() => {
-        if (!workerLoc || !jobLoc.lat) return null;
+        if (!workerLoc || !jobLoc) return null;
         return calculateDistance(jobLoc.lat, jobLoc.lng, workerLoc.lat, workerLoc.lng);
     }, [workerLoc, jobLoc]);
 

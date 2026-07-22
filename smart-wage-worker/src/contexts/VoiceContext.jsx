@@ -22,6 +22,7 @@ export const VoiceProvider = ({ children }) => {
   const [voiceCommand, setVoiceCommand] = useState(null);
   const [isListeningCommand, setIsListeningCommand] = useState(false);
   const [lastIntent, setLastIntent] = useState(null);
+  const [highlightedElementId, setHighlightedElementId] = useState(null);
   const commandRecognitionRef = useRef(null);
   
   // Pre-warm audio system on mount
@@ -151,6 +152,18 @@ export const VoiceProvider = ({ children }) => {
   const currentGuideRef = useRef(null);
   const currentStepIndexRef = useRef(0);
 
+  const stopGuide = useCallback(() => {
+    stopAudio();
+    setIsPlaying(false);
+    setIsPaused(false);
+    setCurrentText('');
+    setHighlightedElementId(null);
+    currentGuideRef.current = null;
+    currentStepIndexRef.current = 0;
+  }, []);
+
+  const playStepRef = useRef();
+
   // Play a specific step from the current guide
   const playStep = useCallback((guide, stepIndex) => {
     if (!guide || stepIndex >= guide.length) {
@@ -169,13 +182,19 @@ export const VoiceProvider = ({ children }) => {
       onEnd: () => {
         // Move to the next step
         currentStepIndexRef.current += 1;
-        playStep(guide, currentStepIndexRef.current);
+        if (playStepRef.current) {
+          playStepRef.current(guide, currentStepIndexRef.current);
+        }
       },
       onError: () => {
         stopGuide();
       }
     });
-  }, [t, i18n.language]);
+  }, [t, i18n.language, stopGuide]);
+
+  useEffect(() => {
+    playStepRef.current = playStep;
+  }, [playStep]);
 
   const playGuide = useCallback((guideId) => {
     const guide = voiceGuides[guideId];
@@ -190,16 +209,6 @@ export const VoiceProvider = ({ children }) => {
     
     playStep(guide, 0);
   }, [playStep]);
-
-  const stopGuide = useCallback(() => {
-    stopAudio();
-    setIsPlaying(false);
-    setIsPaused(false);
-    setCurrentText('');
-    setHighlightedElementId(null);
-    currentGuideRef.current = null;
-    currentStepIndexRef.current = 0;
-  }, []);
 
   const pauseGuide = useCallback(() => {
     pauseAudio();
@@ -217,8 +226,6 @@ export const VoiceProvider = ({ children }) => {
       stopAudio();
     };
   }, []);
-
-  const [highlightedElementId, setHighlightedElementId] = useState(null);
 
   // Update highlighted elements in DOM explicitly by querying them
   useEffect(() => {

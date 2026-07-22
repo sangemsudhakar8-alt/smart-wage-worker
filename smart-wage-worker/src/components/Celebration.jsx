@@ -4,10 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 const Celebration = ({ title, subtitle, onComplete, duration = 4000 }) => {
     const { t } = useTranslation();
-    const [confetti, setConfetti] = useState([]);
-
-    useEffect(() => {
-        // Create 50 confetti pieces
+    const [confetti] = useState(() => {
         const pieces = [];
         const colors = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#a855f7'];
         
@@ -20,8 +17,10 @@ const Celebration = ({ title, subtitle, onComplete, duration = 4000 }) => {
                 size: (Math.random() * 10 + 5) + 'px'
             });
         }
-        setConfetti(pieces);
+        return pieces;
+    });
 
+    useEffect(() => {
         const timer = setTimeout(() => {
             if (onComplete) onComplete();
         }, duration);

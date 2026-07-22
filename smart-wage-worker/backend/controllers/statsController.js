@@ -41,7 +41,6 @@ export const getUserStats = async (req, res) => {
         });
       }
 
-      let totalEarnings = 0;
       const earningsHistory = last7Days.map(date => {
         // Filter attendance records matching this date
         const dayAtts = attSnap.docs.filter(doc => doc.data().date === date);
@@ -51,8 +50,6 @@ export const getUserStats = async (req, res) => {
           const wage = jobWagesMap[attDoc.data().jobId] || 0;
           dayTotal += wage;
         });
-
-        totalEarnings += dayTotal;
 
         return {
           date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),

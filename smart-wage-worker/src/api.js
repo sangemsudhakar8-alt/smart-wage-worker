@@ -24,7 +24,7 @@ export const setupRecaptcha = (containerId) => {
     if (window.recaptchaVerifier) return window.recaptchaVerifier;
     window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
         'size': 'invisible',
-        'callback': (response) => {
+        'callback': () => {
             console.log("Recaptcha resolved");
         }
     });
@@ -68,7 +68,7 @@ const getAuthToken = async () => {
             const parsed = JSON.parse(storedUser);
             if (parsed.token) return parsed.token;
             if (parsed.id) return `mock_token_${parsed.id}`;
-        } catch (e) {
+        } catch {
             // ignore
         }
     }
@@ -213,7 +213,7 @@ export const subscribeToApplications = (callback) => {
     });
 };
 
-export const applyForJob = async (jobId, workerId) => {
+export const applyForJob = async (jobId) => {
     return apiRequest('/applications', {
         method: 'POST',
         body: JSON.stringify({ jobId })
@@ -229,7 +229,7 @@ export const selectWorker = async (applicationId) => {
 // ========================
 // NOTIFICATIONS & ATTENDANCE
 // ========================
-export const fetchNotifications = async (userId) => {
+export const fetchNotifications = async () => {
     return apiRequest('/notifications');
 };
 

@@ -13,7 +13,6 @@ const WorkerAnalytics = ({ stats = {} }) => {
     const [count, setCount] = React.useState(0);
 
     React.useEffect(() => {
-        let start = 0;
         const end = trustScore;
         const duration = 1000;
         let startTimestamp = null;

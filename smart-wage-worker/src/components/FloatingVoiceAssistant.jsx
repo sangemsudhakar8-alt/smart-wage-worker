@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Pause, Square, Mic, X, MessageSquare } from 'lucide-react';
 import { useVoice } from '../contexts/VoiceContext';
 
 const FloatingVoiceAssistant = () => {
   const { isPlaying, isPaused, currentText, stopGuide, pauseGuide, resumeGuide, listenForCommand, isListeningCommand, voiceCommand } = useVoice();
   const [expanded, setExpanded] = useState(false);
+  const [hiddenCommand, setHiddenCommand] = useState(null);
+
+  useEffect(() => {
+    if (voiceCommand) {
+      const timer = setTimeout(() => setHiddenCommand(voiceCommand), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [voiceCommand]);
+
+  const showRecentCommand = Boolean(voiceCommand && hiddenCommand !== voiceCommand);
 
   // If a guide is playing, show the Guide player UI
   if (isPlaying) {
@@ -86,7 +96,7 @@ const FloatingVoiceAssistant = () => {
   return (
     <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end animate-in">
       {/* Transcription Preview (New) */}
-      {(isListeningCommand || (voiceCommand && Date.now() - voiceCommand.timestamp < 3000)) && (
+      {(isListeningCommand || showRecentCommand) && (
           <div className="animate-in" style={{ 
             background: 'rgba(0,0,0,0.8)', 
             color: 'white', 
