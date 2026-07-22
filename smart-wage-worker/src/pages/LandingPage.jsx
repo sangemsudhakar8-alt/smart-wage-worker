@@ -55,13 +55,9 @@ const LandingPage = ({ onGetStarted }) => {
             return;
         }
         setMicPulsing(true);
-        const welcomeUrls = {
-            en: '/audio/en/landing_demo.mp3',
-            hi: '/audio/hi/landing_demo.mp3',
-            te: '/audio/te/landing_demo.mp3'
-        };
-        const url = welcomeUrls[i18n.language] || welcomeUrls.en;
-        playAudio(url, {
+        // Use the main welcome text for the landing demo
+        const textToSpeak = t('landing_hero_title') + ". " + t('landing_hero_subtitle');
+        playAudio(textToSpeak, i18n.language, {
             onEnd: () => setMicPulsing(false),
             onError: () => setMicPulsing(false)
         });
@@ -75,9 +71,9 @@ const LandingPage = ({ onGetStarted }) => {
     ];
 
     const testimonials = [
-        { name: "Suresh B.", role: "Construction Worker", quote: "I found 3 jobs in my first week. My family's income doubled!", avatar: "🧑‍🔧", rating: 5 },
-        { name: "Lakshmi D.", role: "House Helper", quote: "SmartWage ensures I get paid on time, every time. No more cheating!", avatar: "👩‍🍳", rating: 5 },
-        { name: "Ravi K.", role: "Delivery Driver", quote: "My trust score helped me get better-paying jobs. Amazing platform!", avatar: "🧑‍💼", rating: 5 },
+        { name: t('testimonial_1_name'), role: t('testimonial_1_role'), quote: t('testimonial_1_quote'), avatar: "🧑‍🔧", rating: 5 },
+        { name: t('testimonial_2_name'), role: t('testimonial_2_role'), quote: t('testimonial_2_quote'), avatar: "👩‍🍳", rating: 5 },
+        { name: t('testimonial_3_name'), role: t('testimonial_3_role'), quote: t('testimonial_3_quote'), avatar: "🧑‍💼", rating: 5 },
     ];
 
     return (
@@ -125,13 +121,10 @@ const LandingPage = ({ onGetStarted }) => {
                             <ShieldCheck size={14} /> {t('trusted_by_thousands')}
                         </div>
                         <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', lineHeight: 1.1, margin: 0 }}>
-                            Digitizing the <br/>
-                            <span style={{ background: 'linear-gradient(90deg, var(--primary-color), var(--secondary-color))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                                Future of Work
-                            </span>
+                            {t('landing_hero_title')}
                         </h1>
                         <p style={{ fontSize: '1.15rem', color: 'var(--text-light)', maxWidth: '500px', lineHeight: 1.6 }}>
-                            Empowering rural workers with secure jobs, transparent pay, and verified trust scores. Connecting you to reliability.
+                            {t('landing_hero_subtitle')}
                         </p>
                         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <button className="btn btn-primary btn-lg" style={{ width: 'auto', minWidth: '200px' }} onClick={onGetStarted}>
@@ -160,7 +153,7 @@ const LandingPage = ({ onGetStarted }) => {
                                     }}
                                 >
                                     {micPulsing ? <Square size={16} fill="white" style={{ flexShrink: 0 }} /> : <Mic size={18} style={{ flexShrink: 0 }} />}
-                                    {micPulsing ? 'Stop Audio' : 'Voice Demo'}
+                                    {micPulsing ? t('stop_audio_btn') : t('voice_demo_btn')}
                                 </button>
                         </div>
                         {/* Voice hint */}
@@ -207,7 +200,7 @@ const LandingPage = ({ onGetStarted }) => {
                 <section style={{ padding: '3rem 1rem' }}>
                     <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                         <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>{t('how_it_works')}</h2>
-                        <p style={{ color: 'var(--text-light)' }}>Simple, fast, and designed for rural India.</p>
+                        <p style={{ color: 'var(--text-light)' }}>{t('simple_fast_rural')}</p>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
                         {steps.map((step, i) => (
@@ -236,30 +229,30 @@ const LandingPage = ({ onGetStarted }) => {
                 {/* ── WHY SMARTWAGE ── */}
                 <section style={{ padding: '0 1rem 3rem' }}>
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                        <h2 style={{ fontSize: '1.8rem' }}>Why Choose SmartWage?</h2>
-                        <p style={{ color: 'var(--text-light)' }}>Direct connection between verified workers and reliable employers.</p>
+                        <h2 style={{ fontSize: '1.8rem' }}>{t('why_choose_title')}</h2>
+                        <p style={{ color: 'var(--text-light)' }}>{t('why_choose_subtitle')}</p>
                     </div>
                     <div className="grid col-2 web-grid-three" style={{ gap: '20px' }}>
                         <div className="card hover-glow">
                             <div style={{ background: 'var(--primary-soft)', padding: '12px', borderRadius: '12px', width: 'fit-content', marginBottom: '1rem' }}>
                                 <ShieldCheck size={32} color="var(--primary-color)" />
                             </div>
-                            <h3>Secure &amp; Transparent</h3>
-                            <p style={{ fontSize: '0.9rem', margin: 0 }}>Every job and payment is logged with 100% transparency. No hidden cuts.</p>
+                            <h3>{t('secure_transparent_title')}</h3>
+                            <p style={{ fontSize: '0.9rem', margin: 0 }}>{t('secure_transparent_desc')}</p>
                         </div>
                         <div className="card hover-glow">
                             <div style={{ background: 'var(--secondary-soft)', padding: '12px', borderRadius: '12px', width: 'fit-content', marginBottom: '1rem' }}>
                                 <Briefcase size={32} color="var(--secondary-color)" />
                             </div>
-                            <h3>Direct Hiring</h3>
-                            <p style={{ fontSize: '0.9rem', margin: 0 }}>Skip the middlemen. Connect directly with employers through verified profiles.</p>
+                            <h3>{t('direct_hiring_title')}</h3>
+                            <p style={{ fontSize: '0.9rem', margin: 0 }}>{t('direct_hiring_desc')}</p>
                         </div>
                         <div className="card hover-glow">
                             <div style={{ background: 'rgba(245,158,11,0.1)', padding: '12px', borderRadius: '12px', width: 'fit-content', marginBottom: '1rem' }}>
                                 <TrendingUp size={32} color="var(--warning-color)" />
                             </div>
-                            <h3>Trust Reputation</h3>
-                            <p style={{ fontSize: '0.9rem', margin: 0 }}>Build your career with 'Trust Scores'. High scores unlock premium, better-paying jobs.</p>
+                            <h3>{t('trust_reputation_title')}</h3>
+                            <p style={{ fontSize: '0.9rem', margin: 0 }}>{t('trust_reputation_desc')}</p>
                         </div>
                     </div>
                 </section>
@@ -295,9 +288,9 @@ const LandingPage = ({ onGetStarted }) => {
                     textAlign: 'center',
                     color: 'white',
                 }}>
-                    <h2 style={{ color: 'white', fontSize: '2rem', marginBottom: '0.75rem' }}>Ready to Start Working?</h2>
+                    <h2 style={{ color: 'white', fontSize: '2rem', marginBottom: '0.75rem' }}>{t('ready_to_work_title')}</h2>
                     <p style={{ opacity: 0.85, marginBottom: '1.5rem', fontSize: '1.05rem' }}>
-                        Join 12,000+ workers already earning on SmartWage.
+                        {t('joined_count_msg')}
                     </p>
                     <button
                         className="btn btn-lg"
@@ -311,7 +304,7 @@ const LandingPage = ({ onGetStarted }) => {
 
             {/* ── FOOTER ── */}
             <footer style={{ padding: '2rem', textAlign: 'center', borderTop: '1px solid var(--border-color)', color: 'var(--text-light)', fontSize: '0.8rem' }}>
-                © 2026 Smart Wage Worker System. All rights reserved.
+                {t('copyright')}
             </footer>
         </div>
     );

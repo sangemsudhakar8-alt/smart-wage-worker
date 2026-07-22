@@ -9,6 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-outline.svg'],
+      workbox: {
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB
+      },
       manifest: {
         name: 'Smart Wage Worker',
         short_name: 'SmartWage',
@@ -32,4 +35,15 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-libs': ['lucide-react', 'i18next', 'react-i18next'],
+        }
+      }
+    }
+  },
 })

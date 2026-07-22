@@ -3,55 +3,76 @@ import { Play, Pause, Square, Mic, X, MessageSquare } from 'lucide-react';
 import { useVoice } from '../contexts/VoiceContext';
 
 const FloatingVoiceAssistant = () => {
-  const { isPlaying, isPaused, currentText, stopGuide, pauseGuide, resumeGuide, listenForCommand, isListeningCommand } = useVoice();
+  const { isPlaying, isPaused, currentText, stopGuide, pauseGuide, resumeGuide, listenForCommand, isListeningCommand, voiceCommand } = useVoice();
   const [expanded, setExpanded] = useState(false);
 
   // If a guide is playing, show the Guide player UI
   if (isPlaying) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end w-full max-w-sm">
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end w-full max-w-sm animate-in">
         {/* Speech Bubble */}
         {currentText && expanded && (
-          <div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-4 rounded-t-xl rounded-l-xl shadow-lg border border-indigo-100 dark:border-gray-700 mb-3 ml-4 animate-in fade-in slide-in-from-bottom-2 relative">
-            <p className="text-sm font-medium leading-relaxed">{currentText}</p>
-            <div className="absolute -bottom-2 right-4 w-4 h-4 bg-white dark:bg-gray-800 border-b border-r border-indigo-100 dark:border-gray-700 transform rotate-45"></div>
+          <div className="card glass-card" style={{ 
+            background: 'var(--card-bg)', 
+            padding: '1.25rem', 
+            borderRadius: '24px 24px 4px 24px', 
+            marginBottom: '1rem', 
+            maxWidth: '280px',
+            boxShadow: 'var(--shadow-lg)',
+            border: '1px solid var(--card-border)'
+          }}>
+            <p className="text-sm font-medium leading-relaxed" style={{ margin: 0, color: 'var(--text-color)' }}>{currentText}</p>
           </div>
         )}
 
-        {/* Control Bar for Guide */}
-        <div className="bg-indigo-600 text-white rounded-full shadow-2xl flex items-center p-2 backdrop-blur-sm bg-opacity-95">
+        {/* Control Bar for Guide - PREMIUM GRADIENT */}
+        <div style={{ 
+            background: 'var(--gradient-premium)', 
+            color: 'white', 
+            borderRadius: '100px', 
+            boxShadow: 'var(--glow-primary)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            padding: '6px',
+            backdropFilter: 'blur(10px)'
+        }}>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-indigo-500 transition-colors relative"
+            style={{ 
+                width: '48px', height: '48px', 
+                background: 'rgba(255,255,255,0.2)', 
+                borderRadius: '50%', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                border: 'none', color: 'white', cursor: 'pointer',
+                position: 'relative'
+            }}
           >
             {/* Ripples when active */}
             {!isPaused && (
-              <>
-                <span className="absolute inset-0 rounded-full bg-indigo-400 opacity-75 animate-ping"></span>
-              </>
+              <span className="absolute inset-0 rounded-full bg-white opacity-40 animate-ping"></span>
             )}
-            <MessageSquare className="w-6 h-6 text-white relative z-10" />
+            <MessageSquare className="w-5 h-5 text-white relative z-10" />
           </button>
 
           {expanded && (
-            <div className="flex items-center gap-2 px-3 pl-2">
-              <div className="h-6 w-px bg-indigo-400 mx-1"></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px 0 8px' }}>
+              <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.3)', margin: '0 4px' }}></div>
               
               {isPaused ? (
-                <button onClick={resumeGuide} className="p-2 bg-indigo-500 hover:bg-indigo-400 rounded-full transition-colors" title="Resume Guide">
-                  <Play className="w-5 h-5" fill="currentColor" />
+                <button onClick={resumeGuide} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }} title="Resume Guide">
+                  <Play className="w-4 h-4" fill="currentColor" />
                 </button>
               ) : (
-                <button onClick={pauseGuide} className="p-2 bg-indigo-500 hover:bg-indigo-400 rounded-full transition-colors" title="Pause Guide">
-                  <Pause className="w-5 h-5" fill="currentColor" />
+                <button onClick={pauseGuide} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }} title="Pause Guide">
+                  <Pause className="w-4 h-4" fill="currentColor" />
                 </button>
               )}
 
-              <button onClick={stopGuide} className="p-2 bg-red-500 hover:bg-red-400 rounded-full transition-colors ml-1" title="Stop Guide">
-                <Square className="w-4 h-4" fill="currentColor" />
+              <button onClick={stopGuide} style={{ background: 'var(--danger-color)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }} title="Stop Guide">
+                <Square className="w-3 h-3" fill="currentColor" />
               </button>
               
-              <button onClick={() => setExpanded(false)} className="p-2 hover:bg-indigo-500 rounded-full transition-colors ml-2" title="Minimize">
+              <button onClick={() => setExpanded(false)} style={{ background: 'none', border: 'none', padding: '8px', color: 'white', cursor: 'pointer', opacity: 0.8 }} title="Minimize">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -63,15 +84,56 @@ const FloatingVoiceAssistant = () => {
 
   // If no guide is playing, show Global Voice Command button
   return (
-    <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end">
-      <div className={`bg-white dark:bg-gray-800 rounded-full shadow-xl flex items-center p-1 border-2 ${isListeningCommand ? 'border-primary-color pulse' : 'border-indigo-100'}`}>
+    <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end animate-in">
+      {/* Transcription Preview (New) */}
+      {(isListeningCommand || (voiceCommand && Date.now() - voiceCommand.timestamp < 3000)) && (
+          <div className="animate-in" style={{ 
+            background: 'rgba(0,0,0,0.8)', 
+            color: 'white', 
+            padding: '0.75rem 1.25rem', 
+            borderRadius: '16px 16px 4px 16px', 
+            marginBottom: '0.75rem', 
+            maxWidth: '240px',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            backdropFilter: 'blur(8px)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            {isListeningCommand && !voiceCommand?.text ? (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <span className="dot-pulse"></span>
+                    <span>Listening...</span>
+                </div>
+            ) : (
+                <span>" {voiceCommand?.text} "</span>
+            )}
+          </div>
+      )}
+
+      <div style={{ 
+          background: isListeningCommand ? 'var(--primary-color)' : 'var(--card-bg)', 
+          borderRadius: '50%', 
+          boxShadow: isListeningCommand ? 'var(--glow-primary)' : 'var(--shadow-lg)',
+          padding: '4px',
+          border: `2px solid ${isListeningCommand ? 'white' : 'var(--card-border)'}`,
+          transition: 'all 0.3s ease'
+      }}>
         <button
           onClick={listenForCommand}
-          className={`w-14 h-14 flex items-center justify-center rounded-full transition-colors relative ${isListeningCommand ? 'bg-primary-color text-white' : 'bg-gray-100 dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50'}`}
+          style={{ 
+              width: '56px', height: '56px', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              borderRadius: '50%', border: 'none',
+              background: 'transparent',
+              color: isListeningCommand ? 'white' : 'var(--primary-color)',
+              cursor: 'pointer',
+              position: 'relative'
+          }}
           title="Voice Command Assistant"
         >
-          {isListeningCommand && <span className="absolute inset-0 rounded-full bg-primary-color opacity-30 animate-ping"></span>}
-          <Mic className="w-6 h-6 relative z-10" />
+          {isListeningCommand && <span className="absolute inset-0 rounded-full bg-white opacity-40 animate-ping"></span>}
+          <Mic className={`w-6 h-6 relative z-10 ${isListeningCommand ? 'animate-pulse' : ''}`} />
         </button>
       </div>
     </div>

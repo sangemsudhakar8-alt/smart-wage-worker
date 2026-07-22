@@ -4,23 +4,21 @@ import {
 } from "firebase/auth";
 import { 
     collection, 
-    addDoc, 
-    getDocs, 
-    getDoc, 
-    setDoc, 
-    updateDoc, 
-    doc, 
     query, 
     where, 
     orderBy, 
-    limit, 
-    serverTimestamp,
-    increment
+    onSnapshot,
+    getDoc,
+    doc,
+    getDocs
 } from "firebase/firestore";
-import { db, auth } from "./firebase";
+import { uploadBytes, ref, getDownloadURL } from "firebase/storage";
+import { db, auth, storage } from "./firebase";
+
+const API_BASE = 'http://localhost:5000/api';
 
 // ========================
-// AUTHENTICATION (Real SMS Auth)
+// AUTHENTICATION CLIENT AND UTILS
 // ========================
 export const setupRecaptcha = (containerId) => {
     if (window.recaptchaVerifier) return window.recaptchaVerifier;
@@ -34,64 +32,106 @@ export const setupRecaptcha = (containerId) => {
 };
 
 export const sendOTP = async (phone, verifier) => {
-    // DEV MODE: Bypass real SMS for all 10-digit numbers during development
-    // This allows testing without needing Firebase Billing enabled.
-    if (phone.length === 10 && !phone.startsWith('+')) {
-        console.log("Using Mock OTP for Dev:", phone);
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // DEV MODE: Bypass real SMS for 10-digit test numbers
+    if (cleanPhone.length === 10 && !phone.includes('+')) {
+        console.log("Using Mock OTP for Dev:", cleanPhone);
         return {
             confirm: async (otp) => {
                 if (otp === "123456") {
-                    return { user: { uid: `mock_user_${phone}` } };
+                    return { user: { uid: `mock_user_${cleanPhone}` } };
                 }
-                throw new Error("Invalid OTP");
+                throw new Error("auth/invalid-verification-code");
             },
             isMock: true
         };
     }
 
-    // Add +91 prefix if missing (assuming India for wages)
-    const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+    const formattedPhone = phone.startsWith('+') ? phone : `+91${cleanPhone}`;
     const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, verifier);
     return confirmationResult;
 };
 
-export const loginFirebaseUser = async (phone, role, userId) => {
-    const userDoc = await getDoc(doc(db, "users", userId));
-    
-    if (!userDoc.exists()) {
-        const newUser = {
-            id: userId,
-            phone,
-            role,
-            name: `User ${phone.slice(-4)}`,
-            skills: [],
-            location: '',
-            trustScore: 100,
-            createdAt: serverTimestamp()
-        };
-        await setDoc(doc(db, "users", userId), newUser);
-        return { user: newUser };
-    } else {
-        // If user exists, but logs in with a different role, update it (or handle as needed)
-        const existingData = userDoc.data();
-        if (existingData.role !== role) {
-            await updateDoc(doc(db, "users", userId), { role });
-            return { user: { id: userDoc.id, ...existingData, role } };
+// Helper to get active ID token or fallback to stored mock token
+const getAuthToken = async () => {
+    if (auth.currentUser) {
+        try {
+            return await auth.currentUser.getIdToken();
+        } catch (e) {
+            console.error("Failed to get Firebase ID token:", e);
         }
     }
-    return { user: { id: userDoc.id, ...userDoc.data() } };
+    const storedUser = localStorage.getItem('wageUser');
+    if (storedUser) {
+        try {
+            const parsed = JSON.parse(storedUser);
+            if (parsed.token) return parsed.token;
+            if (parsed.id) return `mock_token_${parsed.id}`;
+        } catch (e) {
+            // ignore
+        }
+    }
+    return '';
+};
+
+// Reusable REST HTTP Request helper
+const apiRequest = async (endpoint, options = {}) => {
+    const token = await getAuthToken();
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+    };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+    });
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+};
+
+export const loginFirebaseUser = async (phone, role, userId) => {
+    let token = userId;
+    if (auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
+    }
+    
+    const response = await fetch(`${API_BASE}/auth/session`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ phone, role })
+    });
+    
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Login sync failed');
+    }
+    
+    const data = await response.json();
+    return { 
+        user: { 
+            ...data.user, 
+            token: token.startsWith('mock_user_') ? `mock_token_${userId}` : token 
+        } 
+    };
 };
 
 // ========================
 // REUSABLE HELPER
 // ========================
-const addNotification = async (userId, message, type='info') => {
-    await addDoc(collection(db, "notifications"), {
-        userId,
-        message,
-        type,
-        date: new Date().toISOString(),
-        createdAt: serverTimestamp()
+export const addNotification = async (userId, message, type='info') => {
+    return apiRequest('/notifications', {
+        method: 'POST',
+        body: JSON.stringify({ userId, message, type })
     });
 };
 
@@ -99,234 +139,269 @@ const addNotification = async (userId, message, type='info') => {
 // JOBS API
 // ========================
 export const fetchJobs = async () => {
+    return apiRequest('/jobs');
+};
+
+// Real-time Jobs Subscription (Uses client SDK read)
+export const subscribeToJobs = (callback) => {
     const q = query(collection(db, "jobs"), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return onSnapshot(q, (snapshot) => {
+        const jobs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        callback(jobs);
+    });
 };
 
 export const createJob = async (jobData) => {
-    const docRef = await addDoc(collection(db, "jobs"), {
-        ...jobData,
-        status: 'open',
-        createdAt: serverTimestamp()
+    return apiRequest('/jobs', {
+        method: 'POST',
+        body: JSON.stringify(jobData)
     });
-    return { id: docRef.id, ...jobData };
 };
 
 // ========================
 // APPLICATIONS API
 // ========================
 export const fetchApplications = async () => {
-    const snapshot = await getDocs(collection(db, "applications"));
-    const apps = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // Enrich with worker details and employer phone for UI
-    const enriched = await Promise.all(apps.map(async (app) => {
-        const data = { ...app };
-        
-        // Fetch worker details for employer view
+    return apiRequest('/applications');
+};
+
+// Helper for client-side enrichment in real-time subscriptions
+const enrichApplicationClientSide = async (app) => {
+    const data = { ...app };
+    try {
         const workerDoc = await getDoc(doc(db, "users", app.workerId));
         if (workerDoc.exists()) {
             const worker = workerDoc.data();
             data.workerName = worker.name;
             data.workerSkills = worker.skills;
             data.workerTrustScore = worker.trustScore;
+            data.workerPhone = worker.phone;
+            data.workerCompletedJobs = worker.completedJobs || 0;
             
-            // Calc rating from reviews collection
             const revQ = query(collection(db, "reviews"), where("workerId", "==", app.workerId));
             const revSnap = await getDocs(revQ);
             if (!revSnap.empty) {
-                const total = revSnap.docs.reduce((sum, r) => sum + r.data().rating, 0);
+                const total = revSnap.docs.reduce((sum, r) => sum + Number(r.data().rating || 0), 0);
                 data.workerRating = (total / revSnap.docs.length).toFixed(1);
             } else {
                 data.workerRating = "5.0";
             }
         }
 
-        // Attach Employer Phone if selected
-        if (app.status === 'selected') {
-            const jobDoc = await getDoc(doc(db, "jobs", app.jobId));
-            if (jobDoc.exists()) {
-                const employerDoc = await getDoc(doc(db, "users", jobDoc.data().employerId));
+        const jobDoc = await getDoc(doc(db, "jobs", app.jobId));
+        if (jobDoc.exists()) {
+            const jobData = jobDoc.data();
+            data.jobTitle = jobData.title;
+
+            if (app.status === 'selected' && jobData.employerId) {
+                const employerDoc = await getDoc(doc(db, "users", jobData.employerId));
                 if (employerDoc.exists()) data.employerPhone = employerDoc.data().phone;
             }
         }
-        return data;
-    }));
-    
-    return enriched;
+    } catch (e) {
+        console.error("Enrichment error in subscription:", e);
+    }
+    return data;
+};
+
+// Real-time Applications Subscription (Uses client SDK read)
+export const subscribeToApplications = (callback) => {
+    return onSnapshot(collection(db, "applications"), async (snapshot) => {
+        const apps = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const enriched = await Promise.all(apps.map(app => enrichApplicationClientSide(app)));
+        callback(enriched);
+    });
 };
 
 export const applyForJob = async (jobId, workerId) => {
-    const docRef = await addDoc(collection(db, "applications"), {
-        jobId,
-        workerId,
-        status: 'pending',
-        appliedAt: new Date().toISOString()
+    return apiRequest('/applications', {
+        method: 'POST',
+        body: JSON.stringify({ jobId })
     });
-    
-    // Notify Employer
-    const jobSnap = await getDoc(doc(db, "jobs", jobId));
-    if (jobSnap.exists()) {
-        await addNotification(jobSnap.data().employerId, `A new worker applied for ${jobSnap.data().title}`, 'info');
-    }
-    
-    return { id: docRef.id };
 };
 
 export const selectWorker = async (applicationId) => {
-    const appRef = doc(db, "applications", applicationId);
-    const appSnap = await getDoc(appRef);
-    if (!appSnap.exists()) return;
-    
-    const { jobId, workerId } = appSnap.data();
-    
-    // Transactional logic: Select one, reject others
-    const q = query(collection(db, "applications"), where("jobId", "==", jobId));
-    const allAppsForJob = await getDocs(q);
-    
-    const jobSnap = await getDoc(doc(db, "jobs", jobId));
-
-    await Promise.all(allAppsForJob.docs.map(async (d) => {
-        const status = d.id === applicationId ? 'selected' : 'rejected';
-        await updateDoc(doc(db, "applications", d.id), { status });
-        
-        if (status === 'selected') {
-            await addNotification(d.data().workerId, `You were SELECTED for ${jobSnap.data().title}!`, 'success');
-        } else {
-            await addNotification(d.data().workerId, `Application for ${jobSnap.data().title} was rejected.`, 'error');
-        }
-    }));
-
-    await updateDoc(doc(db, "jobs", jobId), { status: 'closed' });
-    return { success: true };
+    return apiRequest(`/applications/${applicationId}/select`, {
+        method: 'POST'
+    });
 };
 
 // ========================
 // NOTIFICATIONS & ATTENDANCE
 // ========================
 export const fetchNotifications = async (userId) => {
+    return apiRequest('/notifications');
+};
+
+// Real-time Notifications Subscription (Uses client SDK read)
+export const subscribeToNotifications = (userId, callback) => {
     const q = query(collection(db, "notifications"), where("userId", "==", userId), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return onSnapshot(q, (snapshot) => {
+        const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        callback(notifs);
+    });
 };
 
 export const markAttendance = async (attendanceData) => {
-    const { jobId, workerId, present } = attendanceData;
-    await addDoc(collection(db, "attendance"), { ...attendanceData, createdAt: serverTimestamp() });
-    
-    // Trigger dynamic trust score update
-    await updateWorkerTrustScore(workerId);
-    
-    return { success: true };
+    return apiRequest('/attendance', {
+        method: 'POST',
+        body: JSON.stringify(attendanceData)
+    });
+};
+
+// Real-time Attendance Subscription (Uses client SDK read)
+export const subscribeToAttendance = (callback) => {
+    const q = query(collection(db, "attendance"), orderBy("updatedAt", "desc"));
+    return onSnapshot(q, (snapshot) => {
+        const atts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        callback(atts);
+    });
 };
 
 export const fetchAttendance = async () => {
-    const snapshot = await getDocs(collection(db, "attendance"));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-};
-
-export const updateWorkerTrustScore = async (workerId) => {
-    const workerRef = doc(db, "users", workerId);
-    
-    const [attSnap, revSnap, appSnap] = await Promise.all([
-        getDocs(query(collection(db, "attendance"), where("workerId", "==", workerId))),
-        getDocs(query(collection(db, "reviews"), where("workerId", "==", workerId))),
-        getDocs(query(collection(db, "applications"), where("workerId", "==", workerId), where("status", "==", "selected")))
-    ]);
-
-    // 1. Attendance Rate (40%)
-    let attScore = 40; // Default if no records
-    if (!attSnap.empty) {
-        const total = attSnap.docs.length;
-        const present = attSnap.docs.filter(d => d.data().present).length;
-        attScore = (present / total) * 40;
-    }
-
-    // 2. Completed/Hired Jobs (30%)
-    // Let's count 'selected' applications as completed jobs for now
-    const completedCount = appSnap.size;
-    const jobsScore = Math.min(completedCount, 10) / 10 * 30;
-
-    // 3. Ratings (30%)
-    let ratingScore = 30; // Default 5 stars if no reviews
-    if (!revSnap.empty) {
-        const totalStars = revSnap.docs.reduce((sum, r) => sum + r.data().rating, 0);
-        const avg = totalStars / revSnap.docs.length;
-        ratingScore = (avg / 5) * 30;
-    }
-
-    // Baseline for new workers (first 3 jobs) to be fair
-    let finalScore = Math.round(attScore + jobsScore + ratingScore);
-    
-    // Defensive cap
-    finalScore = Math.min(Math.max(finalScore, 0), 100);
-    
-    if (completedCount < 3 && finalScore < 80) finalScore = 80;
-
-    await updateDoc(workerRef, { trustScore: finalScore });
-    return finalScore;
+    return apiRequest('/attendance');
 };
 
 // ========================
 // USER STATS & PROFILE
 // ========================
 export const getUserStats = async (userId) => {
-    const userDoc = await getDoc(doc(db, "users", userId));
-    if (!userDoc.exists()) return null;
-    
-    const user = { id: userDoc.id, ...userDoc.data() };
-    
-    if (user.role === 'worker') {
-        const attQ = query(collection(db, "attendance"), where("workerId", "==", userId), where("present", "==", true));
-        const attSnap = await getDocs(attQ);
-        
-        let totalEarnings = 0;
-        await Promise.all(attSnap.docs.map(async (att) => {
-            const jobSnap = await getDoc(doc(db, "jobs", att.data().jobId));
-            if (jobSnap.exists()) totalEarnings += Number(jobSnap.data().wage);
-        }));
-        
-        user.totalEarnings = totalEarnings;
-        user.daysWorked = attSnap.docs.length;
-    }
-    
-    return user;
+    return apiRequest(`/users/${userId}/stats`);
 };
 
 export const updateProfile = async (userId, profileData) => {
-    await updateDoc(doc(db, "users", userId), profileData);
-    const updated = await getDoc(doc(db, "users", userId));
-    return { id: updated.id, ...updated.data() };
+    return apiRequest('/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profileData)
+    });
+};
+
+export const uploadProfileImage = async (userId, file) => {
+    const storageRef = ref(storage, `profiles/${userId}/${file.name}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    // Write profile updates through backend API
+    await updateProfile(userId, { photoURL: downloadURL });
+    return downloadURL;
 };
 
 export const submitReview = async (reviewData) => {
-    await addDoc(collection(db, "reviews"), { ...reviewData, createdAt: serverTimestamp() });
-    
-    // Trigger dynamic trust score update
-    await updateWorkerTrustScore(reviewData.workerId);
-    
-    await addNotification(reviewData.workerId, `You received a ${reviewData.rating}-star rating!`, 'info');
+    return apiRequest('/reviews', {
+        method: 'POST',
+        body: JSON.stringify(reviewData)
+    });
 };
 
 // ========================
 // LEAVE REQUESTS
 // ========================
 export const fetchLeaves = async () => {
-    const snapshot = await getDocs(collection(db, "leaves"));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return apiRequest('/leaves');
 };
 
 export const requestLeave = async (leaveData) => {
-    await addDoc(collection(db, "leaves"), { ...leaveData, status: 'pending', createdAt: serverTimestamp() });
-    await addNotification(leaveData.employerId, `A worker requested leave for ${leaveData.date}.`, 'info');
+    return apiRequest('/leaves', {
+        method: 'POST',
+        body: JSON.stringify(leaveData)
+    });
 };
 
 export const updateLeaveStatus = async (leaveId, status) => {
-    const leaveRef = doc(db, "leaves", leaveId);
-    const leaveSnap = await getDoc(leaveRef);
-    if (!leaveSnap.exists()) return;
-    
-    await updateDoc(leaveRef, { status });
-    await addNotification(leaveSnap.data().workerId, `Your leave for ${leaveSnap.data().date} was ${status}.`, status === 'approved' ? 'success' : 'error');
+    return apiRequest(`/leaves/${leaveId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status })
+    });
 };
+
+export const cancelApplication = async (applicationId) => {
+    return apiRequest(`/applications/${applicationId}/cancel`, {
+        method: 'POST'
+    });
+};
+
+export const updateWorkerLocation = async (workerId, lat, lng) => {
+    return apiRequest('/attendance/location', {
+        method: 'PUT',
+        body: JSON.stringify({ lat, lng })
+    });
+};
+
+// Real-time Locations Subscription (Uses client SDK read)
+export const subscribeToWorkerLocations = (callback) => {
+    const q = collection(db, 'worker_locations');
+    return onSnapshot(q, (snapshot) => {
+        const locs = {};
+        snapshot.forEach(doc => {
+            locs[doc.id] = doc.data();
+        });
+        callback(locs);
+    });
+};
+
+export const updateLiveLocation = async (workerId, location) => {
+    return apiRequest('/attendance/location', {
+        method: 'PUT',
+        body: JSON.stringify(location)
+    });
+};
+
+// Real-time Active Locations Subscription (Uses client SDK read)
+export const subscribeToActiveLocations = (callback) => {
+    const q = query(collection(db, "users"), where("role", "==", "worker"));
+    return onSnapshot(q, (snapshot) => {
+        const locations = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(u => u.currentLocation || u.isPermanentlyOnline);
+        callback(locations);
+    });
+};
+
+// ========================
+// GEO-FENCE API
+// ========================
+
+/**
+ * Starts a geo-fence session for an active attendance record.
+ * Sets attendance status to 'Active' and logs the first position.
+ * @param {{ attendanceId: string, jobId: string, latitude: number, longitude: number }} payload
+ */
+export const startGeoFence = async (payload) => {
+    return apiRequest('/geofence/start', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+};
+
+/**
+ * Sends a periodic location update (every 30 s) while attendance is active.
+ * The backend calculates distance, detects violations, and updates Firestore.
+ * @param {{ attendanceId: string, latitude: number, longitude: number }} payload
+ * @returns {{ insideRadius: boolean, distance: number, radius: number, status: string, violationCount: number }}
+ */
+export const updateGeoFenceLocation = async (payload) => {
+    return apiRequest('/geofence/update-location', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+};
+
+/**
+ * Ends the geo-fence session and marks attendance status as 'Completed'.
+ * @param {{ attendanceId: string }} payload
+ */
+export const endGeoFence = async (payload) => {
+    return apiRequest('/geofence/end', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+};
+
+/**
+ * Fetches the full geo-fence log history for a given attendance record.
+ * @param {string} attendanceId
+ * @returns {Array<{ id, latitude, longitude, distance, insideRadius, timestamp }>}
+ */
+export const fetchGeoFenceHistory = async (attendanceId) => {
+    return apiRequest(`/geofence/history/${attendanceId}`);
+};
+

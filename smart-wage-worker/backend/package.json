@@ -12,6 +12,7 @@
     "cors": "*",
     "dotenv": "*",
     "express": "*",
+    "firebase-admin": "^14.1.0",
     "jsonwebtoken": "*"
   }
 }

@@ -66,6 +66,15 @@ export const seedDemoData = async (employerUserId) => {
             if (existing.size >= 3) return false;
         }
 
+        // ── Demo Employer (Required for Call Feature) ────────────────────
+        await setDoc(doc(db, "users", EMPLOYER_ID), {
+            id: EMPLOYER_ID,
+            phone: "9876543210",
+            role: "employer",
+            name: "Vikas Reddy (Demo Owner)",
+            createdAt: serverTimestamp(),
+        }, { merge: true });
+
         // ── Demo Worker ─────────────────────────────────────────────────
         await setDoc(doc(db, "users", DEMO_WORKER_ID), {
             id: DEMO_WORKER_ID,
@@ -75,6 +84,13 @@ export const seedDemoData = async (employerUserId) => {
             skills: ["painting", "construction", "driving"],
             location: "Hyderabad",
             trustScore: 87,
+            completedJobs: 12,
+            currentLocation: {
+                lat: 17.4483, // Cyber Towers area
+                lng: 78.3915,
+                updatedAt: Date.now()
+            },
+            isPermanentlyOnline: true,
             createdAt: serverTimestamp(),
         }, { merge: true });
 
@@ -94,6 +110,7 @@ export const seedDemoData = async (employerUserId) => {
             await addDoc(collection(db, "applications"), {
                 jobId: jobIds[jobIndex],
                 workerId: DEMO_WORKER_ID,
+                employerId: EMPLOYER_ID, // Ensure employer link for visibility
                 workerName,
                 workerTrustScore,
                 workerRating,

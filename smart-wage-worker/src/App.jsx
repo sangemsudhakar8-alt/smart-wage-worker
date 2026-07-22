@@ -6,10 +6,10 @@ import Login from './pages/Login';
 import WorkerDashboard from './pages/WorkerDashboard';
 import EmployerDashboard from './pages/EmployerDashboard';
 import LandingPage from './pages/LandingPage';
-import './i18n';
 import { Moon, Sun } from 'lucide-react';
 import { VoiceProvider } from './contexts/VoiceContext';
 import FloatingVoiceAssistant from './components/FloatingVoiceAssistant';
+import VoiceCaption from './components/VoiceCaption';
 
 const PrivateRoute = ({ children, role }) => {
     const { user } = useAuth();
@@ -28,10 +28,11 @@ const ThemeToggle = () => {
 };
 
 const AppContent = () => {
-    const { user, logout } = useAuth();
+    console.log('[DEBUG] AppContent: Rendering start');
+    const { user } = useAuth();
     const [showLogin, setShowLogin] = useState(false);
 
-    // If user is logged in, show their dashboard
+    // If user is logged in, show their dashboard directly
     if (user) {
         return (
             <div className="main-content-fluid">
@@ -41,16 +42,16 @@ const AppContent = () => {
         );
     }
 
-    // Unauthenticated State (Login/Landing)
+    // Unauthenticated State: Show Landing Page first, then Login
+    if (!showLogin) {
+        return <LandingPage onGetStarted={() => setShowLogin(true)} />;
+    }
+
     return (
         <div className="main-content-fluid">
-            {!showLogin ? (
-                <LandingPage onGetStarted={() => setShowLogin(true)} />
-            ) : (
-                <div style={{minHeight:'100vh', width: '100%'}}>
-                     <Login />
-                </div>
-            )}
+            <div style={{minHeight:'100vh', width: '100%'}}>
+                 <Login />
+            </div>
             <ThemeToggle />
         </div>
     );
@@ -61,8 +62,11 @@ function App() {
         <AuthProvider>
             <VoiceProvider>
                 <Router>
-                    <AppContent />
-                    <FloatingVoiceAssistant />
+                    <React.Suspense fallback={<div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'var(--primary-color)', color:'white', fontWeight:'bold', fontSize:'1.5rem'}}>Smart Wage...</div>}>
+                        <AppContent />
+                        <FloatingVoiceAssistant />
+                        <VoiceCaption />
+                    </React.Suspense>
                 </Router>
             </VoiceProvider>
         </AuthProvider>

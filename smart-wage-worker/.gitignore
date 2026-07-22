@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+
+# Secrets
+.env
+serviceAccountKey.json
+
+# Build & CLI artifacts
+build_error*.txt
+.firebase/
+

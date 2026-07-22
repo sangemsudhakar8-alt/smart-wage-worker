@@ -5,13 +5,13 @@ import { getAnalytics } from "firebase/analytics";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDgFhZ6K322MmtQRSzVQw5Ds8WdNA7xX94",
-  authDomain: "smart-wage.firebaseapp.com",
-  projectId: "smart-wage",
-  storageBucket: "smart-wage.firebasestorage.app",
-  messagingSenderId: "1091369718378",
-  appId: "1:1091369718378:web:2c1fb23d1cef0ec1033013",
-  measurementId: "G-2XMV8YW594"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);

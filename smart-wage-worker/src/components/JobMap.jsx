@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -53,6 +54,9 @@ const FitAllMarkers = ({ center, jobs }) => {
 };
 
 const JobMap = ({ userCoords, jobs, onJobClick }) => {
+  const { i18n } = useTranslation();
+  const currentLang = i18n.language || 'en';
+  
   // Default to center if user location isn't provided yet
   const center = userCoords ? [userCoords.lat, userCoords.lng] : [20.5937, 78.9629];
   const zoom = userCoords ? 13 : 5;
@@ -62,8 +66,8 @@ const JobMap = ({ userCoords, jobs, onJobClick }) => {
       {/* We need the div wrapping the map to have a strict z-index so it doesn't overlap the bottom nav bar */}
       <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%', zIndex: 0 }}>
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; Google'
+          url={`https://mt1.google.com/vt/lyrs=m&hl=${currentLang}&x={x}&y={y}&z={z}`}
         />
         
         {userCoords && (
