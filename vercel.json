@@ -1,0 +1,8 @@
+{
+  "name": "smart-wage-workers-frontend",
+  "framework": "vite",
+  "regions": ["bom1"],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

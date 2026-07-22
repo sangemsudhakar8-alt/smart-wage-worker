@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // All read requests require authentication
+    // Disallow all client-side writes (write, create, update, delete) to enforce Express API backend logic
+    
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if false; 
+    }
+    
+    match /jobs/{jobId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    
+    match /applications/{appId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    
+    match /attendance/{attId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    
+    match /notifications/{notifId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /leaves/{leaveId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /worker_locations/{locId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /geoFenceLogs/{logId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Default catch-all: authenticate reads, block all writes
+    match /{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}
