@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./src/assets/banner.png" width="100%" alt="Smart Wage Worker Banner">
+</p>
+
 <div align="center">
 
 # 👷 Smart Wage Worker
